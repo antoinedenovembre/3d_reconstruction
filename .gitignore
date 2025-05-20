@@ -1,0 +1,12 @@
+# Source and results
+data/
+results/
+
+# Report related
+report/*
+report/images/*
+!report/*.pdf
+!report/*.tex
+
+# MacOS
+.DS_Store

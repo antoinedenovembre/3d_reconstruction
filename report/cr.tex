@@ -1,0 +1,160 @@
+% !TeX root = cr.tex
+
+\documentclass[12pt]{article}
+\usepackage{svg}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{graphicx}
+\usepackage{eurosym}
+\usepackage{amsmath}
+\usepackage{multicol}
+\usepackage{geometry}
+\usepackage{nccrules}
+\usepackage[table]{xcolor}
+\usepackage{wrapfig}
+\usepackage{pgfgantt}
+\usepackage{makecell}
+\usepackage{amssymb}
+\usepackage{gensymb}
+\usepackage{textcomp, gensymb} 
+\usepackage{enumitem}
+\usepackage{lmodern}
+\usepackage{mathrsfs}
+\usepackage{textcomp}
+\usepackage{multicol}
+\usepackage{listings}
+\usepackage{media9}
+\usepackage{graphicx}
+\usepackage{breakurl}
+\usepackage{parskip}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{matlab-prettifier}
+\PassOptionsToPackage{hyphens}{url}\usepackage{hyperref}
+\usepackage{bookmark}
+
+\usetikzlibrary{angles,calc,decorations.pathreplacing}
+
+\title{\textbf{Projet imagerie 3D : Reconstruction d'une scène à partir d'images 2D}}
+
+\author{
+    \textsc{Duteyrat Antoine},
+    \textsc{Sève Léo}
+}
+
+\date{\today}
+
+%----------------------------------------------------------------%
+%----------------------------------------------------------------%
+%----------------------------------------------------------------%
+
+\definecolor{couleur}{RGB}{0,0,0}
+\pagestyle {fancy}
+
+\makeatletter
+\let\titre\@title %Variable titre
+\let\auteurs\@author %Variable auteurs
+\let\date\@date %Variable date
+\makeatother
+
+
+%----------------------------------------------------------------%
+
+%En-tête
+\renewcommand{\headrulewidth}{1pt} %Taille du trait
+\setlength{\headheight}{45pt}
+\fancyhead[L]{\titre}
+\fancyhead[R]{}
+
+%Pied de page personnalisé :
+\renewcommand{\footrulewidth}{0.5pt} %Taille du trait
+\fancyfoot[C]{\thepage\ / \pageref{LastPage}} %PageActuelle / nbrePages au centre
+
+%-----------------------------------------------------------------%
+%-----------------------------------------------------------------%
+%-----------------------------------------------------------------%
+
+\begin{document}
+
+%-----------------------%
+%-----Page de garde-----%
+\begin{titlepage}
+    \begin{center}
+        \vskip 1.5cm
+        {\color {couleur}{\huge \bf \titre}}\\[5mm] % Affiche la variable titre
+        \vskip 0.5cm
+        \begin{figure}[h]
+        \centering
+        \includegraphics[width=7cm]{images/logo_tse.png}
+        \end{figure}
+        \vskip 1cm % Saut de ligne
+        {\large \auteurs}\\ % Affiche la variable auteurs  
+        \vskip 0.5cm % Saut de ligne
+        \vfill
+        \color{couleur}{\dashrule[1mm]{15cm}{0.5}} % Trait final
+        \vskip 0.2cm
+        \date % Affiche la variable date
+      \end{center}
+\end{titlepage}
+\clearpage
+
+\tableofcontents
+
+\newpage
+
+%-----------------------------------
+\section{Objectif}
+%-----------------------------------
+
+L'objectif de ce projet est de reconstruire une scène 3D à partir d'images 2D prises d'une caméra arbitraire.
+Pour cela, plusieurs étapes sont nécessaires :
+
+- Calibrer la caméra (calibraton intrinsèque) par la méthode de Zhang (mire plane).
+
+- Prendre plusieurs images d'une scène 3D avec la caméra.
+
+- Triangulation des points 3D à partir des images 2D.
+
+\newpage
+
+%-----------------------------------
+\section{Calibration de la caméra}
+%-----------------------------------
+
+L'objectif de la calibration est de déterminer les valeurs de la matrice intrinsèque K de la caméra de la forme suivante :
+
+\begin{equation}
+\begin{pmatrix}
+su \\
+sv \\
+s
+\end{pmatrix} = 
+\begin{pmatrix}
+\alpha_{u} & 0 & u_0 \\
+0 & \alpha_{v} & v_0 \\
+0 & 0 & 1
+\end{pmatrix}
+\begin{pmatrix}
+\alpha_{u} & 0 & u_0 &  \\
+0 & \alpha_{v} & v_0 \\
+0 & 0 & 1
+\end{pmatrix}
+\begin{pmatrix}
+X_w \\
+Y_w \\
+Z_w \\
+1
+\end{pmatrix}
+\end{equation}
+
+%-----------------------------------
+\section{Où trouver notre travail ?}
+%-----------------------------------
+
+Tout le travail dont il est question dans ce rapport est disponible sur \href{https://github.com/antoinedenovembre/colorimetry_project_2}{github}.
+
+\end{document}
