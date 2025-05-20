@@ -125,23 +125,87 @@ Pour cela, plusieurs étapes sont nécessaires :
 \section{Calibration de la caméra}
 %-----------------------------------
 
-L'objectif de la calibration est de déterminer les valeurs de la matrice intrinsèque K de la caméra de la forme suivante :
+%-----------------------------------
+\subsection{Obtention de la matrice intrinsèque K}
+%-----------------------------------
+
+La calibration de la caméra est une étape cruciale pour obtenir des images 3D précises.
+Elle permet de déterminer la matrice intrinsèque K, qui est utilisée pour projeter les points 3D du monde réel (repère caméra) sur l'image 2D capturée par la caméra.
+
+Illustrons le calcul de la matrice K par un exemple.
+
+%-----------------------------------
+\subsection{Lien matrices K et D, utilisation et projection}
+%-----------------------------------
+
+L'objectif de la calibration est de déterminer les valeurs de la matrice intrinsèque K de la caméra de la forme suivante (équation~\ref{eq:K}) :
 
 \begin{equation}
+\begin{pmatrix}
+\alpha_{u} & \gamma & u_0 \\
+0 & \alpha_{v} & v_0 \\
+0 & 0 & 1
+\end{pmatrix}
+\label{eq:K}
+\end{equation}
+
+avec :
+\begin{equation}
+\alpha_{u} = f \times m_{u} \quad \text{et} \quad \alpha_{v} = f \times m_{v}
+\label{eq:alpha}
+\end{equation}
+
+$\text{où } f \text{ est exprimée en mm et } m_{u}, m_{v} \text{ en pixels/mm.}$
+
+\begin{equation}
+m_{u} = \frac{w}{W} \, \text{(en pixels/mm)} \quad \text{et} \quad m_{v} = \frac{h}{H} \, \text{(en pixels/mm)}
+\label{eq:m}
+\end{equation}
+
+$\text{où } w, h \text{ sont exprimés en pixels et } W, H \text{ en mm.}$
+
+\begin{equation}
+u_{0} = \frac{w}{2} \, \text{(en pixels)} \quad \text{et} \quad v_{0} = \frac{h}{2}  \, \text{(en pixels)}
+\label{eq:u0v0}
+\end{equation}
+
+où :
+\begin{itemize}
+    \item $\alpha_{u}$ et $\alpha_{v}$ représentent la distance focale \textit{f} en pixels dans les directions verticale et horizontale respectivement (équations~\ref{eq:alpha} et \ref{eq:m}),
+    \item $u_0$ et $v_0$ sont les coordonnées du centre optique en pixels (équation~\ref{eq:u0v0}),
+    \item $\gamma$ est le coefficient de biais entre l'axe horizontal et l'axe vertical, représentant l'orthogonalité entre les lignes et les colonnes du capteur (0 si orthogonaux),
+    \item La dernière ligne est utilisée pour homogénéiser les coordonnées.
+\end{itemize}
+\vspace{1cm}
+
+Cela implique d'avoir les informations suivantes sur la caméra :
+\begin{itemize}
+    \item $f$ : distance focale de la caméra,
+    \item $w \times h$ : dimensions du capteur de la caméra (en pixels),
+    \item $W \times H$ : dimensions du capteur de la caméra (en m) ou les dimensions d'un pixel (en m),
+    \item $u_0$ et $v_0$ : coordonnées du centre optique (en pixels), généralement le centre de l'image.
+\end{itemize}
+\vspace{1cm}
+
+Cette matrice est ensuite utilisée dans la conversion des coordonnées 3D du monde réel en coordonnées 2D de l'image, 
+en modèle sténopé sans défaut d'orthogonalité (équation~\ref{eq:projection}).
+
+\begin{equation}
+\label{eq:projection}
 \begin{pmatrix}
 su \\
 sv \\
 s
 \end{pmatrix} = 
 \begin{pmatrix}
-\alpha_{u} & 0 & u_0 \\
+\alpha_{u} & \gamma & u_0 \\
 0 & \alpha_{v} & v_0 \\
 0 & 0 & 1
 \end{pmatrix}
 \begin{pmatrix}
-\alpha_{u} & 0 & u_0 &  \\
-0 & \alpha_{v} & v_0 \\
-0 & 0 & 1
+r_{11} & r_{12} & r_{13} & t_x \\
+r_{21} & r_{22} & r_{23} & t_y \\
+r_{31} & r_{32} & r_{33} & t_z \\
 \end{pmatrix}
 \begin{pmatrix}
 X_w \\
@@ -151,10 +215,33 @@ Z_w \\
 \end{pmatrix}
 \end{equation}
 
+Pour calculer la matrice K, une méthode existe dans la librairie OpenCV, utilisant des mires appelées Charuco (figure~\ref{fig:charuco}).
+Ces mires permettent de calibrer les intrinsèques caméra à partir d'une image.
+Le module OpenCV effectue la détection de la mire, puis la calibration de la caméra de manière automatique.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=7cm]{images/pres_charuco.png}
+\caption{Présentation de la mire Charuco utilisée pour la calibration.}
+\label{fig:charuco}
+\end{figure}
+
+\newpage
+
 %-----------------------------------
 \section{Où trouver notre travail ?}
 %-----------------------------------
 
-Tout le travail dont il est question dans ce rapport est disponible sur \href{https://github.com/antoinedenovembre/colorimetry_project_2}{github}.
+Tout le travail dont il est question dans ce rapport est disponible sur \href{https://github.com/antoinedenovembre/3d_reconstruction}{github}.
+
+\newpage
+
+%-----------------------------------
+\section{Bibliographie}
+%-----------------------------------
+
+\noindent \textbf{FrenchiDrone} : \textit{Calibration de caméra} [en ligne]. Disponible sur : \url{https://www.frenchidrone.com/calibration-de-camera/} (consulté le 20 mai 2025).
+
+\noindent \textbf{Wikipédia} : \textit{Calibration de caméra} [en ligne]. Disponible sur : \url{https://fr.wikipedia.org/wiki/Calibration_de_cam%C3%A9ra} (consulté le 20 mai 2025).
 
 \end{document}
