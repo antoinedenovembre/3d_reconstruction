@@ -8,5 +8,8 @@ report/images/*
 !report/*.pdf
 !report/*.tex
 
+# Data
+data/
+
 # MacOS
 .DS_Store
