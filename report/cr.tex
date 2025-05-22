@@ -1,43 +1,31 @@
 % !TeX root = cr.tex
 
 \documentclass[12pt]{article}
-\usepackage{svg}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage[french]{babel}
-\usepackage{fancyhdr}
-\usepackage{lastpage}
-\usepackage{graphicx}
-\usepackage{eurosym}
-\usepackage{amsmath}
-\usepackage{multicol}
-\usepackage{geometry}
-\usepackage{nccrules}
 \usepackage[table]{xcolor}
-\usepackage{wrapfig}
-\usepackage{pgfgantt}
-\usepackage{makecell}
+\usepackage[french]{babel}
+\usepackage{amsmath}
 \usepackage{amssymb}
-\usepackage{gensymb}
-\usepackage{textcomp, gensymb} 
+\usepackage{bookmark}
 \usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{float}
+% \usepackage{gensymb} % Removed to fix \perthousand and \micro errors
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{lastpage}
 \usepackage{lmodern}
 \usepackage{mathrsfs}
-\usepackage{textcomp}
-\usepackage{multicol}
-\usepackage{listings}
-\usepackage{media9}
-\usepackage{graphicx}
-\usepackage{breakurl}
+\usepackage{nccrules}
 \usepackage{parskip}
-\usepackage{float}
-\usepackage{listings}
-\usepackage{color}
-\usepackage{matlab-prettifier}
-\PassOptionsToPackage{hyphens}{url}\usepackage{hyperref}
-\usepackage{bookmark}
+\usepackage{tikz}
+\usepackage{tikz-3dplot}
+\PassOptionsToPackage{hyphens}{url}\usepackage{url}
 
-\usetikzlibrary{angles,calc,decorations.pathreplacing}
+\usetikzlibrary{angles,calc,decorations.pathreplacing,arrows.meta}
+\tdplotsetmaincoords{70}{-60}
 
 \title{\textbf{Projet imagerie 3D : Reconstruction d'une scène à partir d'images 2D}}
 
@@ -132,48 +120,106 @@ Pour cela, plusieurs étapes sont nécessaires :
 La calibration de la caméra est une étape cruciale pour obtenir des images 3D précises.
 Elle permet de déterminer la matrice intrinsèque K, qui est utilisée pour projeter les points 3D du monde réel (repère caméra) sur l'image 2D capturée par la caméra.
 
-Illustrons le calcul de la matrice K par un exemple.
+% Illustration triangle avec Thales
+
+De cette illustration, on tire les égalités suivantes :
+\begin{equation}
+    \frac{y'}{y} = \frac{f}{z}
+    \quad \text{et} \quad \frac{x'}{x} = \frac{f}{z}
+\end{equation}
+où :
+\begin{itemize}
+    \item $x'$ et $y'$ sont les coordonnées de l'image (en mm),
+    \item $x$, $y$ et $z$ sont les coordonnées du repère caméra (en mm),
+    \item $f$ est la distance focale de la caméra  (en mm).
+\end{itemize}
+\vspace{1cm}
+
+D'où :
+\begin{equation}
+    y' = \frac{f \times y}{z}
+    \quad \text{et} \quad x' = \frac{f \times x}{z}
+\end{equation}
+
+L'objectif est maintenant de passer des coordonnées en mm du repère $x';y'$ au repère $v;u$ de l'image.
+Pour cela, on introduit $m_u$ et $m_v$ les facteurs d'échelle (en pixels/mm), et on ajoute le décalage $v_{0}$ et $u_{0}$ (en pixels) pour obtenir les coordonnées en pixels dans l'image.
+\begin{equation}
+    v = m_v \times y' + v_{0} = \frac{m_v \times f \times y}{z} + v_{0}
+    \quad \text{et} \quad u = m_u \times x' + u_{0} = \frac{m_u \times f \times x}{z} + u_{0}
+\end{equation}
+
+Et en prenant $z = s$ :
+\begin{equation}
+    v = \frac{m_v \times f \times y}{s} + v_{0}
+    \quad \text{et} \quad u = \frac{m_u \times f \times x}{s} + u_{0}
+\end{equation}
+En multipliant par $s$ et en réorganisant, on obtient :
+\begin{equation}
+    \begin{pmatrix}
+    s \times u \\
+    s \times v \\
+    s
+    \end{pmatrix} = 
+    \begin{pmatrix}
+    f \times m_{u} & 0 & u_{0} \\
+    0 & f \times m_{v} & v_{0} \\
+    0 & 0 & 1
+    \end{pmatrix}
+    \begin{pmatrix}
+    x \\
+    y \\
+    z
+    \end{pmatrix}
+\end{equation}
+
+En notant :
+\begin{itemize}
+    \item $f \times m_{u} = \alpha_u$ : distance focale en pixels (en pixels),
+    \item $f \times m_{v} = \alpha_v$ : distance focale en pixels (en pixels),
+    \item $s = z$ : coordonnée de la caméra (en mm)
+\end{itemize}
+
+On obtient alors la matrice intrinsèque K de la caméra :
+\begin{equation}
+    \begin{pmatrix}
+    sv \\
+    su \\
+    s
+    \end{pmatrix} = 
+    \begin{pmatrix}
+    \alpha_u & 0 & u_0 \\
+    0 & \alpha_v & v_0 \\
+    0 & 0 & 1
+    \end{pmatrix}
+    \begin{pmatrix}
+    x \\
+    y \\
+    z
+    \end{pmatrix}
+\end{equation}
+
+Avec la matrice K au centre de l'opération (nous ne considéront pas le cisaillement $\gamma$).
+Cette matrice est utilisée pour projeter les points 3D du repère caméra sur l'image 2D capturée par la caméra.
 
 %-----------------------------------
-\subsection{Lien matrices K et D, utilisation et projection}
+\subsection{Lien matrices K et E, utilisation et projection}
 %-----------------------------------
 
-L'objectif de la calibration est de déterminer les valeurs de la matrice intrinsèque K de la caméra de la forme suivante (équation~\ref{eq:K}) :
+L'objectif de la calibration est de déterminer les valeurs $u_0$ et $v_0$ de la matrice intrinsèque K de la caméra de la forme suivante (équation~\ref{eq:K}) :
 
 \begin{equation}
 \begin{pmatrix}
-\alpha_{u} & \gamma & u_0 \\
+\alpha_{u} & 0 & u_0 \\
 0 & \alpha_{v} & v_0 \\
 0 & 0 & 1
 \end{pmatrix}
 \label{eq:K}
 \end{equation}
 
-avec :
-\begin{equation}
-\alpha_{u} = f \times m_{u} \quad \text{et} \quad \alpha_{v} = f \times m_{v}
-\label{eq:alpha}
-\end{equation}
-
-$\text{où } f \text{ est exprimée en mm et } m_{u}, m_{v} \text{ en pixels/mm.}$
-
-\begin{equation}
-m_{u} = \frac{w}{W} \, \text{(en pixels/mm)} \quad \text{et} \quad m_{v} = \frac{h}{H} \, \text{(en pixels/mm)}
-\label{eq:m}
-\end{equation}
-
-$\text{où } w, h \text{ sont exprimés en pixels et } W, H \text{ en mm.}$
-
-\begin{equation}
-u_{0} = \frac{w}{2} \, \text{(en pixels)} \quad \text{et} \quad v_{0} = \frac{h}{2}  \, \text{(en pixels)}
-\label{eq:u0v0}
-\end{equation}
-
 où :
 \begin{itemize}
-    \item $\alpha_{u}$ et $\alpha_{v}$ représentent la distance focale \textit{f} en pixels dans les directions verticale et horizontale respectivement (équations~\ref{eq:alpha} et \ref{eq:m}),
-    \item $u_0$ et $v_0$ sont les coordonnées du centre optique en pixels (équation~\ref{eq:u0v0}),
-    \item $\gamma$ est le coefficient de biais entre l'axe horizontal et l'axe vertical, représentant l'orthogonalité entre les lignes et les colonnes du capteur (0 si orthogonaux),
+    \item $\alpha_{u}$ et $\alpha_{v}$ représentent la distance focale \textit{f} en pixels dans les directions verticale et horizontale respectivement,
+    \item $u_0$ et $v_0$ sont les coordonnées du centre optique en pixels,
     \item La dernière ligne est utilisée pour homogénéiser les coordonnées.
 \end{itemize}
 \vspace{1cm}
@@ -182,8 +228,7 @@ Cela implique d'avoir les informations suivantes sur la caméra :
 \begin{itemize}
     \item $f$ : distance focale de la caméra,
     \item $w \times h$ : dimensions du capteur de la caméra (en pixels),
-    \item $W \times H$ : dimensions du capteur de la caméra (en m) ou les dimensions d'un pixel (en m),
-    \item $u_0$ et $v_0$ : coordonnées du centre optique (en pixels), généralement le centre de l'image.
+    \item $W \times H$ : dimensions du capteur de la caméra (en m) ou les dimensions d'un pixel (en m)
 \end{itemize}
 \vspace{1cm}
 
@@ -198,7 +243,7 @@ sv \\
 s
 \end{pmatrix} = 
 \begin{pmatrix}
-\alpha_{u} & \gamma & u_0 \\
+\alpha_{u} & 0 & u_0 \\
 0 & \alpha_{v} & v_0 \\
 0 & 0 & 1
 \end{pmatrix}
@@ -215,16 +260,63 @@ Z_w \\
 \end{pmatrix}
 \end{equation}
 
-Pour calculer la matrice K, une méthode existe dans la librairie OpenCV, utilisant des mires appelées Charuco (figure~\ref{fig:charuco}).
-Ces mires permettent de calibrer les intrinsèques caméra à partir d'une image.
-Le module OpenCV effectue la détection de la mire, puis la calibration de la caméra de manière automatique.
+avec la matrice d'extrinsèque E de la caméra de la forme suivante (équation~\ref{eq:E}) :
+
+\begin{equation}
+    E = 
+\begin{pmatrix}
+r_{11} & r_{12} & r_{13} & t_x \\
+r_{21} & r_{22} & r_{23} & t_y \\
+r_{31} & r_{32} & r_{33} & t_z \\
+\end{pmatrix}
+\label{eq:E}
+\end{equation}
+
+Et on note H la matrice d'homographie de la forme suivante (équation~\ref{eq:H}) :
+\begin{equation}
+    H =
+\begin{pmatrix}
+\alpha_{u} & 0 & u_0 \\
+0 & \alpha_{v} & v_0 \\
+0 & 0 & 1
+\end{pmatrix}
+\begin{pmatrix}
+r_{11} & r_{12} & r_{13} & t_x \\
+r_{21} & r_{22} & r_{23} & t_y \\
+r_{31} & r_{32} & r_{33} & t_z \\
+\end{pmatrix}
+\label{eq:H}
+\end{equation}
+
+Pour estimer les paramètres de la matrice d'homographie, nous utiliserons la méthode de Zhang.
+La scène qui nous permettra de calibrer la caméra comportera une mire damier (figure~\ref{fig:chessboard}).
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=7cm]{images/pres_charuco.png}
-\caption{Présentation de la mire Charuco utilisée pour la calibration.}
-\label{fig:charuco}
+\includegraphics[width=7cm]{images/exemple_mire.png}
+\caption{Exemple d'une mire damier}
+\label{fig:chessboard}
 \end{figure}
+
+%-----------------------------------
+\subsection{Application de la méthode Zhang pour estimer K et E}
+%-----------------------------------
+
+%-----------------------------------
+\subsubsection{Calcul de la matrice d'homographie H}
+%-----------------------------------
+
+%-----------------------------------
+\subsubsection{Calcul de la matrice intrinsèque K}
+%-----------------------------------
+
+%-----------------------------------
+\subsubsection{Calcul de la matrice extrinsèque E}
+%-----------------------------------
+
+%-----------------------------------
+\subsubsection{Optimisation par minimisation d'une fonction de perte}
+%-----------------------------------
 
 \newpage
 
