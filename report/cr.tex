@@ -11,7 +11,6 @@
 \usepackage{enumitem}
 \usepackage{fancyhdr}
 \usepackage{float}
-% \usepackage{gensymb} % Removed to fix \perthousand and \micro errors
 \usepackage{geometry}
 \usepackage{graphicx}
 \usepackage{hyperref}
@@ -44,23 +43,23 @@
 \pagestyle {fancy}
 
 \makeatletter
-\let\titre\@title %Variable titre
-\let\auteurs\@author %Variable auteurs
-\let\date\@date %Variable date
+\let\titre\@title
+\let\auteurs\@author
+\let\date\@date
 \makeatother
 
 
 %----------------------------------------------------------------%
 
-%En-tête
-\renewcommand{\headrulewidth}{1pt} %Taille du trait
+% En-tête
+\renewcommand{\headrulewidth}{1pt}
 \setlength{\headheight}{45pt}
 \fancyhead[L]{\titre}
 \fancyhead[R]{}
 
-%Pied de page personnalisé :
-\renewcommand{\footrulewidth}{0.5pt} %Taille du trait
-\fancyfoot[C]{\thepage\ / \pageref{LastPage}} %PageActuelle / nbrePages au centre
+% Pied de page
+\renewcommand{\footrulewidth}{0.5pt}
+\fancyfoot[C]{\thepage\ / \pageref{LastPage}}
 
 %-----------------------------------------------------------------%
 %-----------------------------------------------------------------%
@@ -73,19 +72,19 @@
 \begin{titlepage}
     \begin{center}
         \vskip 1.5cm
-        {\color {couleur}{\huge \bf \titre}}\\[5mm] % Affiche la variable titre
+        {\color {couleur}{\huge \bf \titre}}\\[5mm]
         \vskip 0.5cm
         \begin{figure}[h]
         \centering
         \includegraphics[width=7cm]{images/logo_tse.png}
         \end{figure}
-        \vskip 1cm % Saut de ligne
-        {\large \auteurs}\\ % Affiche la variable auteurs  
-        \vskip 0.5cm % Saut de ligne
+        \vskip 1cm
+        {\large {\auteurs}}
+        \vskip 0.5cm
         \vfill
-        \color{couleur}{\dashrule[1mm]{15cm}{0.5}} % Trait final
+        \color{couleur}{\dashrule[1mm]{15cm}{0.5}}
         \vskip 0.2cm
-        \date % Affiche la variable date
+        \date
       \end{center}
 \end{titlepage}
 \clearpage
@@ -205,7 +204,7 @@ Cette matrice est utilisée pour projeter les points 3D du repère caméra sur l
 \subsection{Lien matrices K et E, utilisation et projection}
 %-----------------------------------
 
-L'objectif de la calibration est de déterminer les valeurs $u_0$ et $v_0$ de la matrice intrinsèque K de la caméra de la forme suivante (équation~\ref{eq:K}) :
+L'objectif de la calibration est de déterminer les valeurs $u_0$ et $v_0$ de la matrice intrinsèque K de la caméra de la forme suivante \cite{frenchidrone}\cite{wikipedia_calibration_camera} (équation~\ref{eq:K}) :
 
 \begin{equation}
 \begin{pmatrix}
@@ -329,11 +328,10 @@ Tout le travail dont il est question dans ce rapport est disponible sur \href{ht
 \newpage
 
 %-----------------------------------
-\section{Bibliographie}
-%-----------------------------------
+\newpage
+\renewcommand{\refname}{Bibliography}
 
-\noindent \textbf{FrenchiDrone} : \textit{Calibration de caméra} [en ligne]. Disponible sur : \url{https://www.frenchidrone.com/calibration-de-camera/} (consulté le 20 mai 2025).
-
-\noindent \textbf{Wikipédia} : \textit{Calibration de caméra} [en ligne]. Disponible sur : \url{https://fr.wikipedia.org/wiki/Calibration_de_cam%C3%A9ra} (consulté le 20 mai 2025).
+\bibliographystyle{plain}
+\bibliography{references}
 
 \end{document}
