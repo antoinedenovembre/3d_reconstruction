@@ -4,17 +4,19 @@ import numpy as np
 import scipy.optimize as opt
 import scipy
 
+CHESSBOARD_SIZE = (10, 7)  # Number of inner corners per chessboard row and column
+CHESSBOARD_DIM = 21.5 # Size of a chessboard square in cm
+
 def homography(images, world_pts, save_folder):
-    copy=np.copy(images)
     H_list = []
     img_pts = []
 
-    for i, img in enumerate(copy):
+    for i, img in enumerate(images):
         # convert image to grayscale
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         # call to opencv to find chessboard corners
-        ret, corners = cv2.findChessboardCorners(gray, (9, 6), None)
+        ret, corners = cv2.findChessboardCorners(gray, CHESSBOARD_SIZE, None)
 
         # if corners are found
         if ret: 
@@ -31,9 +33,11 @@ def homography(images, world_pts, save_folder):
             img_pts.append(corners)
 
             # draw the corners on the image
-            cv2.drawChessboardCorners(img, (9, 6), corners, True)
+            cv2.drawChessboardCorners(img, CHESSBOARD_SIZE, corners, True)
             img = cv2.resize(img, (int(img.shape[1]/3), int(img.shape[0]/3)))
             cv2.imwrite(save_folder + '/' + str(i) + '_corners.png', img)
+        else:
+            print(f"Chessboard corners not found in image {i}. Skipping this image.")
 
     # return the list of homography matrices and image points
     return H_list, img_pts
@@ -127,23 +131,20 @@ if __name__ == '__main__':
     - Compute extrinsic matrix R and t
     '''
 
-    data = 'data/'
+    data = 'data/calib/'
     save = 'output/'
 
-    # size of chessboard in cm
-    size = 21.5
-
     # get all images from the data folder
-    images = [cv2.imread(file) for file in glob.glob(data + '*.jpg')]
+    images = [cv2.imread(file) for file in glob.glob(data + '*.jpeg')]
 
     if not images:
         raise ValueError("No images found in the specified directory.")
 
     # create world points for the chessboard
-    world_pts_x, world_pts_y = np.meshgrid(range(9), range(6))
+    world_pts_x, world_pts_y = np.meshgrid(range(CHESSBOARD_SIZE[0]), range(CHESSBOARD_SIZE[1]))
 
     # reshape and scale the world points
-    world_pts = np.array(np.hstack((world_pts_x.reshape(54, 1), world_pts_y.reshape(54, 1))).astype(np.float32)*size)
+    world_pts = np.array(np.hstack((world_pts_x.reshape(CHESSBOARD_SIZE[0] * CHESSBOARD_SIZE[1], 1), world_pts_y.reshape(CHESSBOARD_SIZE[0] * CHESSBOARD_SIZE[1], 1))).astype(np.float32)*CHESSBOARD_DIM)
 
     # calculate homography for each image and get the image points
     H_list, img_pts = homography(images, world_pts, save)
@@ -154,13 +155,6 @@ if __name__ == '__main__':
     # compute the extrinsic matrices R and t
     R_list, t_list = compute_extrinsics(K, H_list)
 
-    print("first R matrix: \n", R_list[0])
-    print("first t vector: \n", t_list[0])
-
-    # for i, image_points in enumerate(reprojected_pts):
-    #     image = cv2.undistort(images[i], K, distortion)
-    #     for point in image_points:
-    #         image = cv2.circle(image, (point[0], point[1]), 5, (0, 0, 255), 10)
-
-    #     cv2.imwrite(save + "rectified_" + str(i) + ".png", image)
-
+    # save K matrix to a file
+    np.savetxt(save + 'K.txt', K, fmt='%.6f')
+    print("Saved intrinsic matrix K to output/K.txt")
