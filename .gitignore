@@ -1,6 +1,6 @@
 # Source and results
 data/
-results/
+output/
 
 # Report related
 report/*
