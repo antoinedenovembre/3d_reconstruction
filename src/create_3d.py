@@ -133,13 +133,11 @@ if __name__ == '__main__':
     data = 'data/calib/'
     save = 'output/'
 
-    K_original = np.loadtxt(save + 'K.txt')
-
-    # lire matrice K depuis le fichier output/calibration_data.npz
+    # ----------------------- Calibration -----------------------
+    
     calibration_data = np.load('output/calibration_data.npz')
     K = calibration_data['K']
     dist_coeffs = calibration_data['dist_coeffs']
-    # dist_coeffs = dist_coeffs.ravel()  # Aplatir les coefficients de distorsion
 
     # ----------------------- 3D Reconstruction -----------------------
 
