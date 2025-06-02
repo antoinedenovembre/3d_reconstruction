@@ -1,16 +1,9 @@
-# Source and results
-data/
-output/
-
 # Report related
 report/*
 report/images/*
 !report/*.pdf
 !report/*.tex
 !report/*.bib
-
-# Data
-data/
 
 # MacOS
 .DS_Store
