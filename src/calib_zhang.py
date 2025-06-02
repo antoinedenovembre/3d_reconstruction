@@ -35,7 +35,7 @@ def homography(images, world_pts, save_folder):
             # draw the corners on the image
             cv2.drawChessboardCorners(img, CHESSBOARD_SIZE, corners, True)
             img = cv2.resize(img, (int(img.shape[1]/3), int(img.shape[0]/3)))
-            cv2.imwrite(save_folder + '/' + str(i) + '_corners.png', img)
+            cv2.imwrite(save_folder + '/corners/' + str(i) + '_corners.png', img)
         else:
             print(f"Chessboard corners not found in image {i}. Skipping this image.")
 
