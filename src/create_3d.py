@@ -23,6 +23,7 @@ def undistort_images(images, K, dist_coeffs):
     for img in images:
         undistorted_img = cv2.undistort(img, K, dist_coeffs)
         undistorted_images.append(undistorted_img)
+    
     return undistorted_images
 
 def reconstruct(images_obj, K, dist_coeffs=None):
@@ -65,7 +66,16 @@ def reconstruct(images_obj, K, dist_coeffs=None):
         inliers = mask.ravel() > 0
         pts1 = pts1[inliers]
         pts2 = pts2[inliers]
-        good_matches_masked = [good_matches[i] for i in range(len(good_matches)) if inliers[i]]
+        
+        # Filter matches by RANSAC inliers
+        ransac_matches = [good_matches[i] for i in range(len(good_matches)) if inliers[i]]
+        img_matches = cv2.drawMatches(
+            img1, kp1, img2, kp2,
+            ransac_matches, None,
+            flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS
+        )
+        os.makedirs("output/matches", exist_ok=True)
+        cv2.imwrite(f"output/matches/matches_{i}_{i+1}.png", img_matches)
         
         # Récupérer pose relative entre i et i+1
         _, R_rel, t_rel, _ = cv2.recoverPose(E, pts1, pts2, K)
@@ -94,10 +104,6 @@ def reconstruct(images_obj, K, dist_coeffs=None):
         
         all_points_3D.append(pts3D)
         all_colors.append(colors)
-        
-        # Sauvegarde debug
-        img_matches = cv2.drawMatches(img1, kp1, img2, kp2, good_matches_masked, None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-        cv2.imwrite(f"output/matches/matches_{i}_{i+1}.png", img_matches)
     
     all_points_3D = np.vstack(all_points_3D)
     all_colors = np.vstack(all_colors)

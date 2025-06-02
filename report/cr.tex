@@ -117,9 +117,23 @@ Pour cela, plusieurs étapes sont nécessaires :
 %-----------------------------------
 
 La calibration de la caméra est une étape cruciale pour obtenir des images 3D précises.
-Elle permet de déterminer la matrice intrinsèque K, qui est utilisée pour projeter les points 3D du monde réel (repère caméra) sur l'image 2D capturée par la caméra.
+Elle permet de déterminer la matrice intrinsèque K, qui est utilisée pour projeter les points 3D du monde réel (repère caméra) sur l'image 2D capturée par la caméra (figure~\ref{fig:K_schema}).
 
-% Illustration triangle avec Thales
+\begin{figure}[H]
+\centering
+\includegraphics[width=10cm]{images/schema_K.png}
+\caption{Illustration de la projection des coordonnées 3D du repère caméra sur l'image}
+\label{fig:K_schema}
+\end{figure}
+
+Les distances entre les plans sont les suivantes :
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=10cm]{images/schema_K_dist.png}
+\caption{Illustration des distances entre les plans de la caméra}
+\label{fig:K_dist_schema}
+\end{figure}
 
 De cette illustration, on tire les égalités suivantes :
 \begin{equation}
@@ -140,17 +154,17 @@ D'où :
     \quad \text{et} \quad x' = \frac{f \times x}{z}
 \end{equation}
 
-L'objectif est maintenant de passer des coordonnées en mm du repère $x';y'$ au repère $v;u$ de l'image.
-Pour cela, on introduit $m_u$ et $m_v$ les facteurs d'échelle (en pixels/mm), et on ajoute le décalage $v_{0}$ et $u_{0}$ (en pixels) pour obtenir les coordonnées en pixels dans l'image.
+L'objectif est maintenant de passer des coordonnées en mm du repère $x';y'$ au repère $u;v$ de l'image (respectivement vertical et horizontal).
+Pour cela, on introduit $k_u$ et $k_v$ les facteurs d'échelle (en pixels/mm), et on ajoute le décalage $u_{0}$ et $v_{0}$ (en pixels) pour obtenir les coordonnées en pixels dans l'image.
 \begin{equation}
-    v = m_v \times y' + v_{0} = \frac{m_v \times f \times y}{z} + v_{0}
-    \quad \text{et} \quad u = m_u \times x' + u_{0} = \frac{m_u \times f \times x}{z} + u_{0}
+    \quad u = - k_u \times x' + u_{0} = \frac{- k_u \times f \times x}{z} + u_{0}
+    \quad \text{et} \quad v = k_v \times y' + v_{0} = \frac{k_v \times f \times y}{z} + v_{0}
 \end{equation}
 
 Et en prenant $z = s$ :
 \begin{equation}
-    v = \frac{m_v \times f \times y}{s} + v_{0}
-    \quad \text{et} \quad u = \frac{m_u \times f \times x}{s} + u_{0}
+    u = \frac{- k_u \times f \times x}{s} + u_{0}
+    \quad \text{et} \quad v = \frac{k_v \times f \times y}{s} + v_{0}
 \end{equation}
 En multipliant par $s$ et en réorganisant, on obtient :
 \begin{equation}
@@ -160,8 +174,8 @@ En multipliant par $s$ et en réorganisant, on obtient :
     s
     \end{pmatrix} = 
     \begin{pmatrix}
-    f \times m_{u} & 0 & u_{0} \\
-    0 & f \times m_{v} & v_{0} \\
+    - f \times k_u & 0 & u_{0} \\
+    0 & f \times k_v & v_{0} \\
     0 & 0 & 1
     \end{pmatrix}
     \begin{pmatrix}
@@ -173,8 +187,8 @@ En multipliant par $s$ et en réorganisant, on obtient :
 
 En notant :
 \begin{itemize}
-    \item $f \times m_{u} = \alpha_u$ : distance focale en pixels (en pixels),
-    \item $f \times m_{v} = \alpha_v$ : distance focale en pixels (en pixels),
+    \item - $f \times k_{u} = \alpha_u$ : distance focale en pixels (en pixels),
+    \item $f \times k_{v} = \alpha_v$ : distance focale en pixels (en pixels),
     \item $s = z$ : coordonnée de la caméra (en mm)
 \end{itemize}
 
@@ -197,14 +211,14 @@ On obtient alors la matrice intrinsèque K de la caméra :
     \end{pmatrix}
 \end{equation}
 
-Avec la matrice K au centre de l'opération (nous ne considéront pas le cisaillement $\gamma$).
+Avec la matrice K au centre de l'opération (nous ne considérons pas le cisaillement $\gamma$, qui représente l'orthogonalité des lignes et colonnes du capteur de la caméra).
 Cette matrice est utilisée pour projeter les points 3D du repère caméra sur l'image 2D capturée par la caméra.
 
 %-----------------------------------
-\subsection{Lien matrices K et E, utilisation et projection}
+\subsection{Lien matrices K et A, utilisation et projection}
 %-----------------------------------
 
-L'objectif de la calibration est de déterminer les valeurs $u_0$ et $v_0$ de la matrice intrinsèque K de la caméra de la forme suivante \cite{frenchidrone}\cite{wikipedia_calibration_camera} (équation~\ref{eq:K}) :
+L'objectif de la calibration est d'estimer les valeurs de la matrice intrinsèque K de la caméra de la forme suivante \cite{frenchidrone}\cite{wikipedia_calibration_camera} (équation~\ref{eq:K}) :
 
 \begin{equation}
 \begin{pmatrix}
@@ -221,15 +235,6 @@ où :
     \item $u_0$ et $v_0$ sont les coordonnées du centre optique en pixels,
     \item La dernière ligne est utilisée pour homogénéiser les coordonnées.
 \end{itemize}
-\vspace{1cm}
-
-Cela implique d'avoir les informations suivantes sur la caméra :
-\begin{itemize}
-    \item $f$ : distance focale de la caméra,
-    \item $w \times h$ : dimensions du capteur de la caméra (en pixels),
-    \item $W \times H$ : dimensions du capteur de la caméra (en m) ou les dimensions d'un pixel (en m)
-\end{itemize}
-\vspace{1cm}
 
 Cette matrice est ensuite utilisée dans la conversion des coordonnées 3D du monde réel en coordonnées 2D de l'image, 
 en modèle sténopé sans défaut d'orthogonalité (équation~\ref{eq:projection}).
@@ -259,10 +264,10 @@ Z_w \\
 \end{pmatrix}
 \end{equation}
 
-avec la matrice d'extrinsèque E de la caméra de la forme suivante (équation~\ref{eq:E}) :
+avec la matrice d'extrinsèque A de la caméra de la forme suivante (équation~\ref{eq:E}) :
 
 \begin{equation}
-    E = 
+    A = 
 \begin{pmatrix}
 r_{11} & r_{12} & r_{13} & t_x \\
 r_{21} & r_{22} & r_{23} & t_y \\
@@ -298,7 +303,7 @@ La scène qui nous permettra de calibrer la caméra comportera une mire damier (
 \end{figure}
 
 %-----------------------------------
-\subsection{Application de la méthode Zhang pour estimer K et E}
+\subsection{Application de la méthode Zhang pour estimer K et A}
 %-----------------------------------
 
 %-----------------------------------
@@ -310,7 +315,7 @@ La scène qui nous permettra de calibrer la caméra comportera une mire damier (
 %-----------------------------------
 
 %-----------------------------------
-\subsubsection{Calcul de la matrice extrinsèque E}
+\subsubsection{Calcul de la matrice extrinsèque A}
 %-----------------------------------
 
 %-----------------------------------
@@ -329,7 +334,7 @@ Tout le travail dont il est question dans ce rapport est disponible sur \href{ht
 
 %-----------------------------------
 \newpage
-\renewcommand{\refname}{Bibliography}
+\renewcommand{\refname}{Bibliographie}
 
 \bibliographystyle{plain}
 \bibliography{references}
