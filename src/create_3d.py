@@ -141,9 +141,6 @@ if __name__ == '__main__':
     dist_coeffs = calibration_data['dist_coeffs']
     # dist_coeffs = dist_coeffs.ravel()  # Aplatir les coefficients de distorsion
 
-    print("Matrice intrinsèque K homemade :", K_original)
-    print("Matrice intrinseque K opencv :", K)
-
     # ----------------------- 3D Reconstruction -----------------------
 
     image_files = sorted(glob.glob("data/object/*.png"), key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))
@@ -152,12 +149,3 @@ if __name__ == '__main__':
     points3D, colors = reconstruct(images_obj, K, dist_coeffs)
     save_obj_with_colors("output/points/3D_points_with_colors.obj", points3D, colors)
     plot_3D_points(points3D, colors)
-
-# on a matrice K facon zhang, mais on utilise opencv pour la distortion (qui de toutes facons est basé sur Zhang)
-# sur chaque image, on utilise sift pour extraire les points d'intérêt et les descripteurs
-# on fait correspondre les images par paires, en utilisant les descripteurs et BFMatcher
-# on calcule la matrice essentielle entre les paires d'images avec Ransac -> ?
-# on récupère la pose relative entre les paires d'images (rotation et translation)
-# on chaîne les poses globales pour aller de l'image 0 à l'image n
-# on calcule les matrices de projection pour chaque paire d'images, par rapport a la première image -> ?
-# on triangule les points 3D à partir des correspondances d'images -> ?

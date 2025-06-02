@@ -10,3 +10,6 @@ report/images/*
 
 # Python
 __pycache__/
+
+# old stuff
+*old*
