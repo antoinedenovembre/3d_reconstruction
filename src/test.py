@@ -11,7 +11,7 @@ K = calib["K"]
 dist_coeffs = calib["dist_coeffs"]
 
 # Combien de points (coins) on va cliquer par image
-NUM_POINTS = 7  # par exemple les 8 coins d'un cube
+NUM_POINTS = 10  # par exemple les 8 coins d'un cube
 
 # ----------------------------------------
 # 2) Fonctions utilitaires pour la souris
@@ -105,7 +105,8 @@ pts2 = cv2.undistortPoints(pts2.reshape(-1,1,2), K, dist_coeffs, P=K).reshape(-1
 # ----------------------------------------
 # 5) Calcul de la matrice essentielle + recoverPose
 # ----------------------------------------
-E, mask = cv2.findEssentialMat(pts1, pts2, cameraMatrix=K, method=cv2.RANSAC, threshold=1.0)
+E, mask = cv2.findEssentialMat(pts1, pts1, cameraMatrix=K, method=cv2.RANSAC, threshold=1.5)
+print("Matrice essentielle E :\n", E)
 
 # Filtrer par les inliers retournés par RANSAC (optionnel)
 inliers = (mask.ravel() > 0)
@@ -115,10 +116,19 @@ pts2_in = pts2[inliers]
 print("Mask des inliers (0=outlier, 1=inlier) :", mask.ravel().astype(int))
 print("Nombre d’inliers :", np.count_nonzero(mask))
 
-_, R_rel, t_rel, _ = cv2.recoverPose(E, pts1_in, pts2_in, K)
+_, R_rel_inv, t_rel_inv, _ = cv2.recoverPose(E, pts1_in, pts1_in, K)
 
-print("Matrice relative R :\n", R_rel)
-print("Vecteur relatif t :\n", t_rel.ravel())
+print("Matrice relative R inv :\n", R_rel_inv)
+print("Vecteur relatif t inv :\n", t_rel_inv.ravel())
+
+_, R_rel, t_rel, _ = cv2.recoverPose(E, pts1_in, pts1_in, K)
+R_rel_calc = np.linalg.inv(R_rel)
+R_rel_calc2 = R_rel.T
+t_rel_calc = R_rel_calc @ -t_rel
+
+print("Matrice relative R calc :\n", R_rel_calc)
+print("Matrice R calc Transposée :\n", R_rel_calc2)
+print("Vecteur relatif t calc :\n", t_rel_calc.ravel())
 
 # ----------------------------------------
 # 6) Construction des matrices de projection P1, P2
