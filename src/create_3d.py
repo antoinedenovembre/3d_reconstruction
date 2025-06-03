@@ -141,13 +141,11 @@ def plot_3D_points(points3D, colors):
     plt.tight_layout()
     plt.show()
 
-# ======================================= MAIN ==========================================
-if __name__ == '__main__':
-    data = 'data/calib/'
+def main():
     save = 'output/'
 
-    # ----------------------- Calibration -----------------------
-    calibration_data = np.load('output/calibration_data.npz')
+    # ----------------------- Calibration results -----------------------
+    calibration_data = np.load(save + 'calibration_data.npz')
     K = calibration_data['K']
     dist_coeffs = calibration_data['dist_coeffs']
 
@@ -158,3 +156,7 @@ if __name__ == '__main__':
     points3D, colors = reconstruct(images_obj, K, dist_coeffs)
     save_obj_with_colors("output/points/3D_points_with_colors.obj", points3D, colors)
     plot_3D_points(points3D, colors)
+
+# ======================================= MAIN ==========================================
+if __name__ == '__main__':
+    main()

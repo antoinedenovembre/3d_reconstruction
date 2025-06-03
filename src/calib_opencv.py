@@ -2,10 +2,7 @@
 import cv2
 import numpy as np
 import glob
-
-# ======================================= CONSTANTS ======================================
-CHESSBOARD_SIZE = (10, 7)  # number of inner corners per chessboard row and column
-CHESSBOARD_DIM = 15 # size of a chessboard square in cm
+from constants import CHESSBOARD_SIZE, CHESSBOARD_DIM
 
 # ======================================= FUNCTIONS ======================================
 def prepare_object_points(chessboard_size, square_size):

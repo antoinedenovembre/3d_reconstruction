@@ -4,10 +4,7 @@ import glob
 import numpy as np
 import scipy.optimize as opt
 import scipy
-
-# ======================================= CONSTANTS ======================================
-CHESSBOARD_SIZE = (10, 7)  # number of inner corners per chessboard row and column
-CHESSBOARD_DIM = 21.5 # size of a chessboard square in cm
+from constants import CHESSBOARD_SIZE, CHESSBOARD_DIM
 
 # ======================================= FUNCTIONS ======================================
 def homography(images, world_pts, save_folder):
@@ -125,15 +122,7 @@ def compute_extrinsics(K, H_list):
 
     return R_list, t_list
 
-# ======================================= MAIN ==========================================
-if __name__ == '__main__':
-    '''
-    Steps :
-    - Compute homography for each image
-    - Compute intrinsic matrix K
-    - Compute extrinsic matrix R and t
-    '''
-
+def main():
     data = 'data/calib/'
     save = 'output/'
 
@@ -161,3 +150,7 @@ if __name__ == '__main__':
     # save K matrix to a file
     np.savetxt(save + 'K.txt', K, fmt='%.6f')
     print("Saved intrinsic matrix K to output/K.txt")
+
+# ======================================= MAIN ==========================================
+if __name__ == '__main__':
+    main()
