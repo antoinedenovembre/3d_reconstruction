@@ -20,6 +20,11 @@ clicked_pts1 = []
 clicked_pts2 = []
 current_image = 1  # on commencera par cliquer dans la fenêtre "Image 1"
 
+def save_obj(filename, points3D):
+    with open(filename, 'w') as f:
+        for p in points3D:
+            f.write(f"v {p[0]} {p[1]} {p[2]}\n")
+
 def on_mouse_img1(event, x, y, flags, param):
     global clicked_pts1, current_image
     if event == cv2.EVENT_LBUTTONDOWN:
@@ -45,8 +50,8 @@ def on_mouse_img2(event, x, y, flags, param):
 # ----------------------------------------
 # 3) Charger et afficher les deux images
 # ----------------------------------------
-img1 = cv2.imread("data/object/1.png")  # première vue
-img2 = cv2.imread("data/object/2.png")  # deuxième vue
+img1 = cv2.imread("data/object/0.png")  # première vue
+img2 = cv2.imread("data/object/1.png")  # deuxième vue
 
 if img1 is None or img2 is None:
     raise RuntimeError("Impossible de charger les images. Vérifiez les chemins.")
@@ -127,6 +132,9 @@ pts4D_homo = cv2.triangulatePoints(P1, P2, pts1_in.T, pts2_in.T)  # shape (4, N_
 
 # Passage en coordonnées 3D (on divise par w)
 pts3D = (pts4D_homo[:3] / pts4D_homo[3]).T  # shape (N_inliers, 3)
+
+# sauvegarde des points en obj
+save_obj("output/points/3D_points_test.obj", pts3D)
 
 print("\nPoints 3D triangulés (chaque ligne = X, Y, Z) :")
 for i, P in enumerate(pts3D):
