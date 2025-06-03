@@ -1,9 +1,11 @@
+# ======================================= IMPORTS =======================================
 import cv2
 import glob
 import numpy as np
 import os
 import matplotlib.pyplot as plt
 
+# ======================================= FUNCTIONS ======================================
 def extract_features(images):
     sift = cv2.SIFT_create()
 
@@ -27,7 +29,7 @@ def undistort_images(images, K, dist_coeffs):
     return undistorted_images
 
 def reconstruct(images_obj, K, dist_coeffs=None):
-    images_obj = undistort_images(images_obj, K, dist_coeffs)
+    # images_obj = undistort_images(images_obj, K, dist_coeffs)
     kp_list, desc_list = extract_features(images_obj)
     
     all_points_3D = []
@@ -35,7 +37,7 @@ def reconstruct(images_obj, K, dist_coeffs=None):
     
     bf = cv2.BFMatcher()
     
-    # Pose initiale
+    # initial pose
     R_global = np.eye(3)
     t_global = np.zeros((3,1))
     
@@ -59,15 +61,15 @@ def reconstruct(images_obj, K, dist_coeffs=None):
         
         pts1 = np.float32(pts1)
         pts2 = np.float32(pts2)
-        
-        # Matrice essentielle (threshold is distance from point to epipolar line in pixels)
+
+        # essential matrix (threshold is distance from point to epipolar line in pixels)
         E, mask = cv2.findEssentialMat(pts1, pts2, K, method=cv2.RANSAC, threshold=1.0)
         
         inliers = mask.ravel() > 0
         pts1 = pts1[inliers]
         pts2 = pts2[inliers]
         
-        # Filter matches by RANSAC inliers
+        # filter matches by RANSAC inliers
         ransac_matches = [good_matches[i] for i in range(len(good_matches)) if inliers[i]]
         img_matches = cv2.drawMatches(
             img1, kp1, img2, kp2,
@@ -76,26 +78,30 @@ def reconstruct(images_obj, K, dist_coeffs=None):
         )
         os.makedirs("output/matches", exist_ok=True)
         cv2.imwrite(f"output/matches/matches_{i}_{i+1}.png", img_matches)
+
+        # sort matches in the same order as pts1 and pts2
+        pts1 = pts1[np.argsort([m.queryIdx for m in ransac_matches])]
+        pts2 = pts2[np.argsort([m.trainIdx for m in ransac_matches])]
         
-        # Récupérer pose relative entre i et i+1
+        # retrieve relative pose
         _, R_rel, t_rel, _ = cv2.recoverPose(E, pts1, pts2, K)
-        
-        # Chaîner les poses globales
-        R_global = R_global @ R_rel
+
+        # chain global poses
         t_global = t_global + R_global @ t_rel
-        
-        # Matrices de projection globales (on prend la premiere image comme référence)
-        # P1 est la matrice de projection de la première caméra (identité)
-        # P2 est la matrice de projection de la deuxième caméra (R_global, t_global)
+        R_global = R_global @ R_rel
+
+        # global projection matrices (taking the first image as reference)
+        # P1 is the projection matrix of the first camera (identity)
+        # P2 is the projection matrix of the second camera (R_global, t_global)
         P1 = K @ np.hstack((np.eye(3), np.zeros((3,1))))
         P2 = K @ np.hstack((R_global, t_global))
         
-        # Triangulation
+        # triangulation
         pts4D = cv2.triangulatePoints(P1, P2, pts1.T, pts2.T)
         pts3D = pts4D[:3] / pts4D[3]
         pts3D = pts3D.T
-        
-        # Couleurs
+
+        # colors
         colors = []
         for pt in pts1:
             x, y = int(pt[0]), int(pt[1])
@@ -113,7 +119,7 @@ def reconstruct(images_obj, K, dist_coeffs=None):
 def save_obj_with_colors(filename, points3D, colors):
     with open(filename, 'w') as f:
         for p, c in zip(points3D, colors):
-            # c est en BGR, on convertit en RGB
+            # colors are in BGR format (OpenCV), convert to RGB
             r, g, b = c[2], c[1], c[0]
             f.write(f"v {p[0]} {p[1]} {p[2]} {r/255:.4f} {g/255:.4f} {b/255:.4f}\n")
 
@@ -121,8 +127,8 @@ def plot_3D_points(points3D, colors):
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, projection='3d')
 
-    # Si les couleurs sont en BGR (OpenCV), les convertir en RGB pour matplotlib
-    colors_rgb = colors[:, ::-1] / 255.0  # Conversion BGR -> RGB et [0,1]
+    # if colors are in BGR (OpenCV), convert to RGB for matplotlib
+    colors_rgb = colors[:, ::-1] / 255.0  # Convert BGR -> RGB and [0,1]
 
     ax.scatter(points3D[:, 0], points3D[:, 1], points3D[:, 2], 
             c=colors_rgb, s=1, marker='o')
@@ -135,18 +141,17 @@ def plot_3D_points(points3D, colors):
     plt.tight_layout()
     plt.show()
 
+# ======================================= MAIN ==========================================
 if __name__ == '__main__':
     data = 'data/calib/'
     save = 'output/'
 
     # ----------------------- Calibration -----------------------
-    
     calibration_data = np.load('output/calibration_data.npz')
     K = calibration_data['K']
     dist_coeffs = calibration_data['dist_coeffs']
 
     # ----------------------- 3D Reconstruction -----------------------
-
     image_files = sorted(glob.glob("data/object/*.png"), key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))
     images_obj = [cv2.imread(file) for file in image_files]
 

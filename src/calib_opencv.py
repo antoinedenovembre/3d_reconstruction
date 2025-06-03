@@ -1,56 +1,93 @@
+# ======================================= IMPORTS =======================================
 import cv2
 import numpy as np
 import glob
 
-# Chessboard params
-pattern_size = (10, 7) 
-square_size = 15 # Size of a square in mm
+# ======================================= CONSTANTS ======================================
+CHESSBOARD_SIZE = (10, 7)  # number of inner corners per chessboard row and column
+CHESSBOARD_DIM = 15 # size of a chessboard square in cm
 
-# Prepare 3D points (z=0)
-# objp will have size (pattern_size, 3), each line is (x, y, 0)
-objp = np.zeros((pattern_size[0] * pattern_size[1], 3), np.float32)
-objp[:, :2] = np.mgrid[0:pattern_size[0], 0:pattern_size[1]].T.reshape(-1, 2)
-objp *= square_size
+# ======================================= FUNCTIONS ======================================
+def prepare_object_points(chessboard_size, square_size):
+    """Prepare a single map of 3D object points for the chessboard (z=0)."""
+    objp = np.zeros((chessboard_size[0] * chessboard_size[1], 3), np.float32)
+    objp[:, :2] = np.mgrid[0:chessboard_size[0],
+                           0:chessboard_size[1]].T.reshape(-1, 2)
+    objp *= square_size
+    return objp
 
-objpoints = []  # 3D points in world coordinates
-imgpoints = []  # 2D points in image coordinates
+def find_corners(images, chessboard_size, objp):
+    """
+    Iterate over all images, detect and refine chessboard corners.
+    Returns objpoints, imgpoints, and image shape.
+    """
+    objpoints = []
+    imgpoints = []
+    img_shape = None
 
-images = glob.glob('data/calib/*.jpeg') + glob.glob('data/calib/*.png')
+    for fname in images:
+        img = cv2.imread(fname)
+        if img is None:
+            print(f"Could not read image {fname}")
+            continue
 
-if not images:
-    print("Aucune image trouvée dans data/calib. Vérifie l'extension ou le chemin.")
-    exit(1)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        if img_shape is None:
+            img_shape = gray.shape[::-1]
 
-for fname in images:
-    img = cv2.imread(fname)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        ret, corners = cv2.findChessboardCorners(gray, chessboard_size, None)
+        if not ret:
+            print(f"No corners found in {fname}")
+            continue
 
-    # Detect chessboard corners
-    ret, corners = cv2.findChessboardCorners(gray, pattern_size, None)
+        corners_subpix = cv2.cornerSubPix(
+            gray,
+            corners,
+            winSize=(11, 11),
+            zeroZone=(-1, -1),
+            criteria=(cv2.TERM_CRITERIA_EPS |
+                      cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+        )
 
-    if ret:
-        corners_subpix = cv2.cornerSubPix(gray, corners, winSize=(11,11), zeroZone=(-1,-1),
-                                          criteria=(cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001))
         objpoints.append(objp)
         imgpoints.append(corners_subpix)
 
-        cv2.drawChessboardCorners(img, pattern_size, corners_subpix, ret)
+        cv2.drawChessboardCorners(img, chessboard_size, corners_subpix, ret)
         cv2.imshow('Corners', img)
-        cv2.waitKey(100)  # affiche chaque résultat 100 ms
-    else:
-        print(f"No corners in image {fname}")
+        cv2.waitKey(100)
 
-cv2.destroyAllWindows()
+    cv2.destroyAllWindows()
+    return objpoints, imgpoints, img_shape
 
-# Calibration de la caméra
-# image_size = (largeur, hauteur) en pixels
-img_shape = gray.shape[::-1]  # (width, height)
-ret, K, dist_coeffs, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, img_shape, None, None)
+def calibrate_and_save(objpoints, imgpoints, img_shape, output_path):
+    """Perform camera calibration and save results to .npz."""
+    ret, K, dist_coeffs, rvecs, tvecs = cv2.calibrateCamera(
+        objpoints, imgpoints, img_shape, None, None
+    )
+    print("Calibration reprojection error:", ret)
+    if not ret:
+        print("Calibration failed")
+        exit(1)
 
-if not ret:
-    print("Calibration failed")
-    exit(1)
+    np.savez(output_path, K=K, dist_coeffs=dist_coeffs,
+             rvecs=rvecs, tvecs=tvecs)
+    print(f"Calibration complete. Data saved to {output_path}")
 
-# (Optionnel) Sauvegarder K et dist_coeffs dans un fichier npz
-np.savez('calibration_data.npz', K=K, dist_coeffs=dist_coeffs, rvecs=rvecs, tvecs=tvecs)
-print("\nCalibration complete, results saved in calibration_data.npz")
+def main():
+    image_pattern = 'data/calib/*.jpeg'
+    output_file = 'output/calibration_data.npz'
+
+    images = glob.glob(image_pattern)
+    if not images:
+        print(f"No images found in {image_pattern}")
+        exit(1)
+
+    objp = prepare_object_points(CHESSBOARD_SIZE, CHESSBOARD_DIM)
+    objpoints, imgpoints, img_shape = find_corners(
+        images, CHESSBOARD_SIZE, objp
+    )
+    calibrate_and_save(objpoints, imgpoints, img_shape, output_file)
+
+# ======================================= MAIN ==========================================
+if __name__ == "__main__":
+    main()

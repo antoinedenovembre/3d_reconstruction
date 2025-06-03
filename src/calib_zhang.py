@@ -1,12 +1,15 @@
+# ======================================= IMPORTS =======================================
 import cv2
 import glob
 import numpy as np
 import scipy.optimize as opt
 import scipy
 
-CHESSBOARD_SIZE = (10, 7)  # Number of inner corners per chessboard row and column
-CHESSBOARD_DIM = 21.5 # Size of a chessboard square in cm
+# ======================================= CONSTANTS ======================================
+CHESSBOARD_SIZE = (10, 7)  # number of inner corners per chessboard row and column
+CHESSBOARD_DIM = 21.5 # size of a chessboard square in cm
 
+# ======================================= FUNCTIONS ======================================
 def homography(images, world_pts, save_folder):
     H_list = []
     img_pts = []
@@ -94,7 +97,6 @@ def compute_intrinsics(H_list):
     
     return K
 
-
 def compute_extrinsics(K, H_list):
     # compute the inverse of the intrinsic matrix K
     K_inv = np.linalg.inv(K)
@@ -123,6 +125,7 @@ def compute_extrinsics(K, H_list):
 
     return R_list, t_list
 
+# ======================================= MAIN ==========================================
 if __name__ == '__main__':
     '''
     Steps :
