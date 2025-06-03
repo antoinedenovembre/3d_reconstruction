@@ -5,6 +5,9 @@ report/images/*
 !report/*.tex
 !report/*.bib
 
+# Output
+output/*
+
 # MacOS
 .DS_Store
 
