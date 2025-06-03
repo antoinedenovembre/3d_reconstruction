@@ -62,12 +62,22 @@ def reconstruct(images_obj, K, dist_coeffs=None):
         pts1 = np.float32(pts1)
         pts2 = np.float32(pts2)
 
+        # undistort points
+        if dist_coeffs is not None:
+            pts1 = cv2.undistortPoints(pts1.reshape(-1, 1, 2), K, dist_coeffs, P=K).reshape(-1, 2)
+            pts2 = cv2.undistortPoints(pts2.reshape(-1, 1, 2), K, dist_coeffs, P=K).reshape(-1, 2)
+
         # essential matrix (threshold is distance from point to epipolar line in pixels)
         E, mask = cv2.findEssentialMat(pts1, pts2, K, method=cv2.RANSAC, threshold=1.0)
         
         inliers = mask.ravel() > 0
         pts1 = pts1[inliers]
         pts2 = pts2[inliers]
+
+        # sort matches by queryIdx and trainIdx
+        good_matches = [good_matches[i] for i in range(len(good_matches)) if inliers[i]]
+        pts1 = pts1[np.argsort([m.queryIdx for m in good_matches])]
+        pts2 = pts2[np.argsort([m.trainIdx for m in good_matches])]
         
         # filter matches by RANSAC inliers
         ransac_matches = [good_matches[i] for i in range(len(good_matches)) if inliers[i]]
