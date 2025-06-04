@@ -303,26 +303,237 @@ La scène qui nous permettra de calibrer la caméra comportera une mire damier (
 \end{figure}
 
 %-----------------------------------
-\subsection{Application de la méthode Zhang pour estimer K et A}
+\subsection{Application de la méthode Zhang pour estimer K}
 %-----------------------------------
+
+La méthode de Zhang a été appliquée dans le fichier \texttt{src/calib\_zhang.py} à partir des informations trouvées dans le papier de Z. Zhang \cite{zhang_paper}.
 
 %-----------------------------------
 \subsubsection{Calcul de la matrice d'homographie H}
 %-----------------------------------
 
+Le calcul de la matrice d'homographie H est effectué à partir d'images de la mire damier, prises sous différents angles avec la caméra.
+La première étape consiste donc à utiliser la fonction \texttt{findChessboardCorners} de OpenCV pour détecter les coins de la mire damier dans les images.
+On récupère ainsi les coordonnées des coins internes de la mire dans l'image (en pixels) et on les stocke dans un tableau.
+La correspondance entre ces points et des points 3D connus dans le repère monde permet d'utiliser la fonction \texttt{findHomography} de OpenCV pour calculer la matrice d'homographie H.
+Pour rappel, matrice d'homographie H est de la forme suivante (équation~\ref{eq:H_full}) :
+
+\begin{equation}
+    H =
+\begin{pmatrix}
+\alpha_{u} & 0 & u_0 \\
+0 & \alpha_{v} & v_0 \\
+0 & 0 & 1
+\end{pmatrix}
+\begin{pmatrix}
+r_{11} & r_{12} & r_{13} & t_x \\
+r_{21} & r_{22} & r_{23} & t_y \\
+r_{31} & r_{32} & r_{33} & t_z \\
+\end{pmatrix}
+=
+\begin{pmatrix}
+h_{11} & h_{12} & h_{13} \\
+h_{21} & h_{22} & h_{23} \\
+h_{31} & h_{32} & h_{33}
+\end{pmatrix}
+\label{eq:H_full}
+\end{equation}
+
 %-----------------------------------
 \subsubsection{Calcul de la matrice intrinsèque K}
 %-----------------------------------
 
-%-----------------------------------
-\subsubsection{Calcul de la matrice extrinsèque A}
-%-----------------------------------
+Pour estimer les paramètres intrinsèques de la caméra, on s’appuie sur l’algorithme de Zhang : on commence par collecter plusieurs matrices d’homographie \(\{H_i\}\) (une par image de la mire) puis on résout un système linéaire de la forme \(V\,b = 0\), où \(b\) contient les coefficients de la matrice symétrique \(B = K^{-T} K^{-1}\). Les étapes sont les suivantes :
+
+\begin{enumerate}
+    \item \textbf{Construction de la matrice \(V\)}
+
+    Pour chaque homographie \(H\), on calcule deux vecteurs :
+    \[
+        v_{01}(H) \quad\text{et}\quad v_{00}(H) - v_{11}(H),
+    \]
+    où, pour \(i,j\in\{0,1,2\}\),
+    \[
+        v_{ij}(H) =
+        \begin{bmatrix}
+        h_{0i}h_{0j},\;
+        h_{0i}h_{1j}+h_{1i}h_{0j},\;
+        h_{1i}h_{1j},\;
+        h_{2i}h_{0j}+h_{0i}h_{2j},\;
+        h_{2i}h_{1j}+h_{1i}h_{2j},\;
+        h_{2i}h_{2j}
+        \end{bmatrix}^T.
+    \]
+    On concatène ces lignes dans une grande matrice $V$.
+    \linebreak
+
+    \item \textbf{Décomposition SVD et vecteur solution}  
+    
+    On récupère la conjuguée-transposée de la matrice \(V\) et on effectue une décomposition en valeurs singulières (SVD) grâce à la fonction \texttt{np.linalg.svd} de NumPy.
+    On obtient ainsi \(b\) avec \(b = V^T u\), où \(u\) est le dernier vecteur de la SVD de \(V\) (correspondant à la plus petite valeur singulière).
+    \linebreak
+
+    \item \textbf{Reconstruction de la matrice \(B\)}  
+    
+    On recompose
+    \[
+        B = 
+        \begin{pmatrix}
+        B_{11} & B_{12} & B_{13} \\
+        B_{12} & B_{22} & B_{23} \\
+        B_{13} & B_{23} & B_{33}
+        \end{pmatrix},
+    \]
+    avec \(B_{11}=b_0,\;B_{12}=b_1,\ldots,B_{33}=b_8\).
+    \linebreak
+
+    \item \textbf{Calcul des paramètres intrinsèques}  
+    
+    En posant \(v_0=\frac{B_{12}B_{13}-B_{11}B_{23}}{B_{11}B_{22}-B_{12}^2}\) et
+    \(\lambda = B_{33} - \bigl(B_{13}^2 + v_0\,(B_{12}B_{13}-B_{11}B_{23})\bigr)/B_{11}\),
+    on obtient :
+    \[
+        \alpha_u = \sqrt{\frac{\lambda}{B_{11}}},\quad
+        \alpha_v = \sqrt{\frac{\lambda\,B_{11}}{B_{11}B_{22}-B_{12}^2}},\quad
+        \gamma = -\frac{B_{12}\,\alpha_u^2\,\alpha_v}{\lambda},\quad
+        u_0 = \frac{\gamma\,v_0}{\alpha_v}-\frac{B_{13}\,\alpha_u^2}{\lambda}.
+    \]
+    \linebreak
+
+    \item \textbf{Formation de la matrice intrinsèque \(K\)}  
+    
+    Enfin,
+    \[
+        K = 
+        \begin{pmatrix}
+        \alpha_u & \gamma   & u_0 \\
+        0        & \alpha_v & v_0 \\
+        0        & 0        & 1
+        \end{pmatrix}.
+    \]
+\end{enumerate}
+
+Ce processus garantit une estimation robuste de la calibration interne de la caméra à partir de jeux de points plans projetés.
 
 %-----------------------------------
 \subsubsection{Optimisation par minimisation d'une fonction de perte}
 %-----------------------------------
 
+Cette étape est optionnelle et assez peu détaillée dans le papier de Z. Zhang. Nous avons donc décidé de ne pas l'implémenter dans notre code.
+Ce choix nous contraint en revanche à utiliser la fonction \texttt{calibrateCamera} de OpenCV pour obtenir la matrice intrinsèque K optimisée et les coefficients de distorsion de la caméra (dans le fichier \texttt{calib\_opencv.py}).
+
+%-----------------------------------
 \newpage
+\section{Utilisation des intrinsèques caméra K pour la reconstruction 3D}
+%-----------------------------------
+
+%-----------------------------------
+\subsection{Matériel et données utilisées}
+%-----------------------------------
+
+Nous avons utilisé une caméra d'iPhone 13 pour capturer les images de la mire et de l'objet 3D (figure~\ref{fig:mire_photo} et figure~\ref{fig:obj_fond}).
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/mire.jpeg}
+        \caption{Photo d'une mire prise avec l'iPhone 13}
+        \label{fig:mire_photo}
+    \end{minipage}\hfill
+    \begin{minipage}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/obj_fond.jpeg}
+        \caption{Photo d'un objet 3D pris avec l'iPhone 13}
+        \label{fig:obj_fond}
+    \end{minipage}
+\end{figure}
+
+Pour limiter les détections de points d'intérêt sur les motifs derrière l'objet 3D, nous avons utilisé un fond uni (noir) en post-traitement des images d'objet (figure~\ref{fig:obj_sans_fond}).
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=7cm]{images/obj_sans_fond.png}
+\caption{Photo du même objet 3D sans fond}
+\label{fig:obj_sans_fond}
+\end{figure}
+
+%-----------------------------------
+\subsection{Reconnaissance des points d'intérêt}
+%-----------------------------------
+
+Pour la reconnaissance des points d'intérêt dans les images, nous avons utilisé l'algorithme SIFT (Scale-Invariant Feature Transform) de OpenCV.
+Cet algorithme est robuste aux variations d'échelle et de rotation, et fournit en sortie une liste de points d'intérêt détectés dans l'image (figure~\ref{fig:interest}), ainsi que leurs descripteurs associés (caractéristiques).
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=7cm]{images/interest_point.png}
+\caption{Photo du même objet 3D sans fond avec un exemple de point d'intérêt détecté (cercle vert)}
+\label{fig:interest}
+\end{figure}
+
+%-----------------------------------
+\subsection{Correspondance des points d'intérêt dans les paires d'images}
+%-----------------------------------
+
+Ces points d'intérêt détectés dans les différentes images doivent être mis en correspondance pour permettre la reconstruction 3D. Nous avons ici fait attention de nommer des images prises successivement correctement, pour assurer la présence de paires de points d'intérêt entre les images.
+\linebreak
+Nous avons utilisé la classe \texttt{BFMatcher} de OpenCV pour effectuer cette correspondance.
+Cette classe permet ensuite d'utiliser la méthode \texttt{knnMatch} pour trouver les correspondances entre les points d'intérêt de deux images.
+\linebreak
+Nous avons fixé le nombre de correspondances à 2 pour chaque point d'intérêt, ce qui permet de trouver les deux points les plus proches dans l'espace des caractéristiques.
+Pour garder la meilleure correspondance, nous avons utilisé le ratio de Lowe (0.75) pour filtrer les correspondances.
+Ce ratio permet de ne garder que les correspondances dont la distance est inférieure à 75\% de la distance du deuxième point le plus proche.
+
+%-----------------------------------
+\subsection{Matrice essentielle et tri des correspondances}
+%-----------------------------------
+
+L'étape suivante consiste à calculer la matrice essentielle E à partir des correspondances de points d'intérêt.
+Cette matrice est utilisée ensuite pour estimer la rotation et la translation entre les deux images.
+Nous avons utilisé la fonction \texttt{findEssentialMat} de OpenCV pour calculer la matrice essentielle E à partir des correspondances de points d'intérêt.
+Le calcul de la fonction donne aussi en sortie un masque de correspondances, qui permet de filtrer les correspondances qui ne sont pas valides, en choisissant la méthode de tri (ici Ransac).
+\linebreak
+Chaque point d'intérêt d'une image $N$, à ce moment de l'algorithme, est associé à un point d'intérêt de l'image $N+1$.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=12cm]{images/matches.png}
+\caption{Exemple d'une correspondance de points d'intérêt entre deux images (cercles violets liés par un trait)}
+\label{fig:matches}
+\end{figure}
+
+%-----------------------------------
+\subsection{Triangulation des points 3D}
+%-----------------------------------
+
+La triangulation des points est ensuite faite en trois étapes :
+\begin{enumerate}
+    \item \textbf{L'estimation des matrices $R_i$ et $t_i$} de rotation et translation entre les deux images $i$ et $i+1$ à partir de la matrice essentielle E. Pour cela, nous avons utilisé la fonction \texttt{recoverPose} de OpenCV, qui permet de récupérer la rotation et la translation entre les deux images à partir de la matrice essentielle E et des points d'intérêt correspondants.
+    \item \textbf{La construction de la matrice de projection $P_i$} pour chaque image $i$ à partir de la matrice intrinsèque K et des matrices de rotation et translation $R_i$ et $t_i$. Cette matrice est faite après la combinaison de la rotation et de la translation estimées précédemment avec les R et t de toutes les images précédentes.
+    \item \textbf{La triangulation des points 3D} à partir des points d'intérêt correspondants et des matrices de projection $P_i$ et $P_{i+1}$. Pour cela, nous avons utilisé la fonction \texttt{triangulatePoints} de OpenCV, qui permet de trianguler les points 3D à partir des points d'intérêt correspondants et des matrices de projection. 
+    Il est ici important de donner en paramètre les correspondances des points dans le bon ordre, c'est-à-dire que le point d'intérêt $N$ de l'image $i$ doit correspondre au point d'intérêt $N$ de l'image $i+1$.
+\end{enumerate}
+
+%-----------------------------------
+\subsection{Problèmes rencontrés}
+%-----------------------------------
+
+Durant le projet, nous avons rencontré plusieurs problèmes :
+\begin{itemize}
+    \item La détection des points d'intérêt donnait parfois peu de points, voire aucun, ce qui rendait la triangulation impossible. Nous avons dû utiliser des objets 3D avec des motifs bien marqués pour que la détection fonctionne correctement.
+    \item La correspondance a également posé problème lors de l'utilisation d'objets à motifs texturés périodiques. Dans ces cas, les points d'intérêt détectés pouvaient ne pas correspondre correctement entre les images, ce qui compliquait la reconstruction 3D. Nous avons donc dû utiliser des objets à texture unique (comme le cube de la figure~\ref{fig:obj_sans_fond}) pour garantir une correspondance correcte des points d'intérêt.
+    \item L'ordre des correspondances dans la liste se retrouvait auparavant dans un ordre aléatoire, sans garantir la cohérence point à point entre les images. Nous avons dû veiller à ce que les points d'intérêt soient correctement associés entre les images pour la triangulation.
+    \item La fonction \texttt{recoverPose} de OpenCV, qui donne le vecteur translation \textit{normalisé} et non-pas le vecteur translation réel. Nous a empêcher de reconstruire la scène 3D correctement. L'application d'un facteur de mise à l'échelle aurait été possible en stéréoscopie, ou du moins en connaissant le déplacement réel de la caméra entre les deux images. Cependant, nous n'avions pas cette information, ce qui a rendu la reconstruction 3D impossible.
+\end{itemize}
+
+%-----------------------------------
+\newpage
+\section{Résultats obtenus}
+%-----------------------------------
+
+Nous avons dans ce projet réussi à déterminer toutes les étapes de la reconstruction 3D d'une scène à partir d'images 2D, en utilisant la méthode de calibration de Zhang pour estimer la matrice intrinsèque K de la caméra.
+Cependant, nous n'avons pas réussi à obtenir une reconstruction 3D correcte de la scène en raison des problèmes rencontrés lors de la triangulation des points 3D (évoqués dans la section précédente). Pour mener ce projet à bien, l'utilisation d'une caméra stéréoscopique aurait facilité la tâche, car elle aurait permis de connaître la distance réelle entre les deux images et donc de reconstruire la scène 3D correctement.
 
 %-----------------------------------
 \section{Où trouver notre travail ?}
@@ -330,11 +541,10 @@ La scène qui nous permettra de calibrer la caméra comportera une mire damier (
 
 Tout le travail dont il est question dans ce rapport est disponible sur \href{https://github.com/antoinedenovembre/3d_reconstruction}{github}.
 
-\newpage
-
 %-----------------------------------
 \newpage
 \renewcommand{\refname}{Bibliographie}
+%-----------------------------------
 
 \bibliographystyle{plain}
 \bibliography{references}
