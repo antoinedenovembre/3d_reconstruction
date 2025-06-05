@@ -319,24 +319,26 @@ La correspondance entre ces points et des points 3D connus dans le repère monde
 Pour rappel, matrice d'homographie H est de la forme suivante (équation~\ref{eq:H_full}) :
 
 \begin{equation}
-    H =
+    H
+=
 \begin{pmatrix}
-\alpha_{u} & 0 & u_0 \\
-0 & \alpha_{v} & v_0 \\
-0 & 0 & 1
+h_{11} & h_{12} & h_{13} & h_{14} \\
+h_{21} & h_{22} & h_{23} & h_{24} \\
+h_{31} & h_{32} & h_{33} & h_{34}
 \end{pmatrix}
-\begin{pmatrix}
-r_{11} & r_{12} & r_{13} & t_x \\
-r_{21} & r_{22} & r_{23} & t_y \\
-r_{31} & r_{32} & r_{33} & t_z \\
-\end{pmatrix}
+\label{eq:H_full}
+\end{equation}
+
+Dans la méthode de Zhang, on simplifie cette matrice d'homographie H en taille \(3 \times 3\) (équation~\ref{eq:H_simplified}) en négligeant la rotation sur l'axe \(z\) dans un plan deux dimensions.
+\begin{equation}
+    H
 =
 \begin{pmatrix}
 h_{11} & h_{12} & h_{13} \\
 h_{21} & h_{22} & h_{23} \\
 h_{31} & h_{32} & h_{33}
 \end{pmatrix}
-\label{eq:H_full}
+\label{eq:H_simplified}
 \end{equation}
 
 %-----------------------------------
@@ -356,12 +358,12 @@ Pour estimer les paramètres intrinsèques de la caméra, on s’appuie sur l’
     \[
         v_{ij}(H) =
         \begin{bmatrix}
-        h_{0i}h_{0j},\;
-        h_{0i}h_{1j}+h_{1i}h_{0j},\;
         h_{1i}h_{1j},\;
-        h_{2i}h_{0j}+h_{0i}h_{2j},\;
-        h_{2i}h_{1j}+h_{1i}h_{2j},\;
-        h_{2i}h_{2j}
+        h_{1i}h_{2j}+h_{2i}h_{1j},\;
+        h_{2i}h_{2j},\;
+        h_{3i}h_{1j}+h_{1i}h_{3j},\;
+        h_{3i}h_{2j}+h_{2i}h_{3j},\;
+        h_{3i}h_{3j}
         \end{bmatrix}^T.
     \]
     On concatène ces lignes dans une grande matrice $V$.
@@ -524,8 +526,15 @@ Durant le projet, nous avons rencontré plusieurs problèmes :
     \item La détection des points d'intérêt donnait parfois peu de points, voire aucun, ce qui rendait la triangulation impossible. Nous avons dû utiliser des objets 3D avec des motifs bien marqués pour que la détection fonctionne correctement.
     \item La correspondance a également posé problème lors de l'utilisation d'objets à motifs texturés périodiques. Dans ces cas, les points d'intérêt détectés pouvaient ne pas correspondre correctement entre les images, ce qui compliquait la reconstruction 3D. Nous avons donc dû utiliser des objets à texture unique (comme le cube de la figure~\ref{fig:obj_sans_fond}) pour garantir une correspondance correcte des points d'intérêt.
     \item L'ordre des correspondances dans la liste se retrouvait auparavant dans un ordre aléatoire, sans garantir la cohérence point à point entre les images. Nous avons dû veiller à ce que les points d'intérêt soient correctement associés entre les images pour la triangulation.
-    \item La fonction \texttt{recoverPose} de OpenCV, qui donne le vecteur translation \textit{normalisé} et non-pas le vecteur translation réel. Nous a empêcher de reconstruire la scène 3D correctement. L'application d'un facteur de mise à l'échelle aurait été possible en stéréoscopie, ou du moins en connaissant le déplacement réel de la caméra entre les deux images. Cependant, nous n'avions pas cette information, ce qui a rendu la reconstruction 3D impossible.
+    \item La fonction \texttt{recoverPose} de OpenCV, qui donne le vecteur translation \textit{normalisé} et non-pas le vecteur translation réel nous a empêché de reconstruire la scène 3D correctement. L'application d'un facteur de mise à l'échelle aurait été possible en stéréoscopie, ou du moins en connaissant le déplacement réel de la caméra entre les deux images. Cependant, nous n'avions pas cette information, ce qui a rendu la reconstruction 3D à N images (plus de 2) impossible, on peut le constater dans la figure illustrant la trajectoire caméra estimée (figure~\ref{fig:trajectory}).
 \end{itemize}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=7cm]{images/trajectory.png}
+\caption{Illustration de la trajectoire de la caméra estimée à partir des résultats de la fonction \texttt{recoverPose}}
+\label{fig:trajectory}
+\end{figure}
 
 %-----------------------------------
 \newpage
@@ -533,7 +542,65 @@ Durant le projet, nous avons rencontré plusieurs problèmes :
 %-----------------------------------
 
 Nous avons dans ce projet réussi à déterminer toutes les étapes de la reconstruction 3D d'une scène à partir d'images 2D, en utilisant la méthode de calibration de Zhang pour estimer la matrice intrinsèque K de la caméra.
-Cependant, nous n'avons pas réussi à obtenir une reconstruction 3D correcte de la scène en raison des problèmes rencontrés lors de la triangulation des points 3D (évoqués dans la section précédente). Pour mener ce projet à bien, l'utilisation d'une caméra stéréoscopique aurait facilité la tâche, car elle aurait permis de connaître la distance réelle entre les deux images et donc de reconstruire la scène 3D correctement.
+Cependant, nous n'avons pas réussi à obtenir une reconstruction 3D correcte de la scène à $N$ images en raison des problèmes rencontrés lors de la triangulation des points 3D (évoqués dans la section précédente). 
+\linebreak
+Nous avons donc décidé d'utiliser notre script avec seulement deux images pour observer les résultats de la projection des points. Nous avons observé les résultats suivants, où on distingue clairement deux plans imagés (figure~\ref{fig:matches2} et figure~\ref{fig:reconstruction2}).
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/2images_matches.jpeg}
+        \caption{Illustration des correspondances de points d'intérêt entre deux images}
+        \label{fig:matches2}
+    \end{minipage}\hfill
+    \begin{minipage}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/2images_reconstruction.jpeg}
+        \caption{Illustration de la reconstruction 3D à partir de deux images}
+        \label{fig:reconstruction2}
+    \end{minipage}
+\end{figure}
+
+Pour approfondir la vérification, nous avons sélectionné manuellement les points d'intérêt entre deux images, en dessinant le contour du cube.
+Les résultats sont visibles dans la figure~\ref{fig:manual_points} et la figure~\ref{fig:manual_reconstruction}.
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/manual_points.jpeg}
+        \caption{Sélection des points d'intérêt manuellement entre deux images}
+        \label{fig:manual_points}
+    \end{minipage}\hfill
+    \begin{minipage}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/manual_reconstruction.jpeg}
+        \caption{Reconstruction en nuage de points sélectionnés manuellement}
+        \label{fig:manual_reconstruction}
+    \end{minipage} 
+\end{figure}
+
+Nous avons fini cette étape de reconstruction en créant une texture à l'aide du nuage de points. Il est ici à noter que seulement 3 faces du cube sont visibles, ce qui donne la moitié d'un cube en texture (figure~\ref{fig:front} et figure~\ref{fig:back}).
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/front.jpeg}
+        \caption{Reconstruction du cube (face avant)}
+        \label{fig:front}
+    \end{minipage}\hfill
+    \begin{minipage}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/back.jpeg}
+        \caption{Reconstruction du cube (face arrière)}
+        \label{fig:back}
+    \end{minipage} 
+\end{figure}
+
+Pour pousser ce projet plus loin (reconstruction à $N$ images), l'utilisation d'une caméra stéréoscopique aurait été bénéfique, car elle aurait permis de connaître la distance réelle entre les deux images et donc de reconstruire la scène 3D correctement.
+Une autre alternative aurait été un support rotatif gradué, permettant de connaître les rotations et translations caméra.
 
 %-----------------------------------
 \section{Où trouver notre travail ?}
