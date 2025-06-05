@@ -3,6 +3,7 @@ import cv2
 
 # ======================================= FUNCTIONS ======================================
 def extract_features(images):
+    """ Extract SIFT features from a list of images. """
     # Tweak SIFT parameters to get more features
     sift = cv2.SIFT_create(
         nfeatures=5000,          # max number of features
@@ -23,6 +24,7 @@ def extract_features(images):
     return keypoints_list, descriptors_list
 
 def undistort_images(images, K, dist_coeffs):
+    """ Undistort a list of images using the camera intrinsic matrix and distortion coefficients. """
     undistorted_images = []
     for img in images:
         undistorted_img = cv2.undistort(img, K, dist_coeffs)
@@ -31,4 +33,5 @@ def undistort_images(images, K, dist_coeffs):
     return undistorted_images
 
 def resize_image(img, target_h, target_w):
+    """ Resize an image to the target height and width, maintaining aspect ratio. """
     return cv2.resize(img, (target_w, target_h))

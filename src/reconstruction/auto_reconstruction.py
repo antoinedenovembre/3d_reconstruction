@@ -8,8 +8,8 @@ import os
 import logging
 
 from functions.image import extract_features, undistort_images
-from functions.viz import plot_3D_points, view_camera_trajectory, view_mesh_file
-from functions.obj import points_to_file, points_to_faces_to_file
+from functions.viz import plot_3D_points_colors, view_camera_trajectory, view_mesh_file
+from functions.obj import points_to_file_colors, points_to_faces_to_file
 from constants import *
 
 # ======================================= LOGGER SETUP =======================================
@@ -33,6 +33,7 @@ logging.basicConfig(level=logging.INFO, handlers=[handler])
 
 # ======================================= FUNCTIONS =======================================
 def get_3d_points_from_images(images_obj, K, dist_coeffs=None):
+    """ Triangulate 3D points from a list of images using SIFT features and essential matrix. """
     images_obj = undistort_images(images_obj, K, dist_coeffs)
     kp_list, desc_list = extract_features(images_obj)
     
@@ -142,10 +143,10 @@ def main():
     points3D, colors = get_3d_points_from_images(images, K, dist_coeffs)
 
     # plot the 3D points
-    plot_3D_points(points3D, colors)
+    plot_3D_points_colors(points3D, colors)
 
     # save the points to a file
-    points_to_file(POINTS_SAVE_FOLDER + "3D_points_with_colors.obj", points3D, colors)
+    points_to_file_colors(POINTS_SAVE_FOLDER + "3D_points_with_colors.obj", points3D, colors)
 
     # save the mesh from the points
     points_to_faces_to_file(POINTS_SAVE_FOLDER + "3D_points_with_colors.obj", MESH_SAVE_FOLDER + "3D_faces.obj")

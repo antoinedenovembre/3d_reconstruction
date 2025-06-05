@@ -1,13 +1,13 @@
 # ======================================= IMPORTS =======================================
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 import logging
 
 from functions.obj import points_to_faces_to_file, points_to_file
 from functions.image import resize_image
+from functions.viz import plot_3D_points
 from constants import *
 
 # ======================================= GLOBALS =======================================
@@ -40,6 +40,7 @@ logging.basicConfig(level=logging.INFO, handlers=[handler])
 
 # ======================================= FUNCTIONS =======================================
 def on_mouse(event, x, y, flags, param):
+    """ Mouse callback function to handle clicks on the image pair display. """
     global img_pair_display, current_click_image, current_pair
 
     if event == cv2.EVENT_LBUTTONDOWN:
@@ -53,18 +54,19 @@ def on_mouse(event, x, y, flags, param):
             if len(clicked_pts[left_idx]) < NUM_POINTS:
                 clicked_pts[left_idx].append((x, y))
                 cv2.circle(img_pair_display, (x, y), 5, (0, 255, 0), -1)
-                print(f"Paire {current_pair} - Image {left_idx} : point {len(clicked_pts[left_idx])} = {(x, y)}")
+                print(f"Pair n°{current_pair} - Image {left_idx} : point {len(clicked_pts[left_idx])} = {(x, y)}")
                 current_click_image = 1
         elif current_click_image == 1 and x >= half_w:
             if len(clicked_pts[right_idx]) < NUM_POINTS:
                 clicked_pts[right_idx].append((x - half_w, y))
                 cv2.circle(img_pair_display, (x, y), 5, (0, 0, 255), -1)
-                print(f"Paire {current_pair} - Image {right_idx} : point {len(clicked_pts[right_idx])} = {(x - half_w, y)}")
+                print(f"Pair n°{current_pair} - Image {right_idx} : point {len(clicked_pts[right_idx])} = {(x - half_w, y)}")
                 current_click_image = 0
         else:
-            print(f"Cliquez dans la {'gauche' if current_click_image == 0 else 'droite'} de la fenêtre.")
+            logging.info(f"Click on the {'left' if current_click_image == 0 else 'right'} side of the window.")
 
 def process_pair(pair_idx):
+    """ Process a pair of images to click points on and triangulate 3D points. """
     global img_pair_display, current_click_image, current_pair
     current_pair = pair_idx
     current_click_image = 0
@@ -72,7 +74,7 @@ def process_pair(pair_idx):
     img_left = images[2 * pair_idx]
     img_right = images[2 * pair_idx + 1]
 
-    # Redimensionnement
+    # resizing
     h1, w1 = img_left.shape[:2]
     h2, w2 = img_right.shape[:2]
     max_h = max(h1, h2)
@@ -88,63 +90,65 @@ def process_pair(pair_idx):
     if len(clicked_pts[left_idx]) < NUM_POINTS or len(clicked_pts[right_idx]) < NUM_POINTS:
         cv2.namedWindow("Image pair")
         cv2.setMouseCallback("Image pair", on_mouse)
-        print(f"\n--- Paire {pair_idx} : cliquez {NUM_POINTS} points alternatifs dans Image {left_idx} (gauche, vert) puis Image {right_idx} (droite, rouge) ---")
+        logging.info(f"\n--- Pair n°{pair_idx} : click {NUM_POINTS} alternative points in Image {left_idx} (left, green) then Image {right_idx} (right, red) ---")
 
         while True:
             cv2.imshow("Image pair", img_pair_display)
             key = cv2.waitKey(1) & 0xFF
             if len(clicked_pts[left_idx]) == NUM_POINTS and len(clicked_pts[right_idx]) == NUM_POINTS:
-                print(f"Tous les points cliqués pour la paire {pair_idx}")
+                logging.info(f"All points clicked for pair {pair_idx}")
                 break
             if key == 27:
-                print("Interrompu par l'utilisateur.")
+                logging.info("Interrupted by user.")
                 exit(0)
 
         cv2.destroyAllWindows()
 
-        # Sauvegarde des clics
+        # save clicks
         np.savez(CLICKED_POINTS_FILE, clicked_pts=np.array(clicked_pts, dtype=object))
-        print(f"Points cliqués sauvegardés dans {CLICKED_POINTS_FILE}")
+        logging.info(f"Clicked points saved to {CLICKED_POINTS_FILE}")
     else:
-        print(f"Paire {pair_idx} déjà annotée. Traitement automatique.")
+        logging.info(f"Pair n°{pair_idx} already annotated. Automatic processing.")
 
-    # Conversion en float32 et correction distorsion
+    # convert to float32 and undistort
     pts1 = np.array(clicked_pts[left_idx], dtype=np.float32)
     pts2 = np.array(clicked_pts[right_idx], dtype=np.float32)
     pts1 = cv2.undistortPoints(pts1.reshape(-1, 1, 2), K, dist_coeffs, P=K).reshape(-1, 2)
     pts2 = cv2.undistortPoints(pts2.reshape(-1, 1, 2), K, dist_coeffs, P=K).reshape(-1, 2)
 
-    # Calcul essentiel et pose
+    # essential matrix and pose calculation
     E, mask = cv2.findEssentialMat(pts1, pts2, cameraMatrix=K, method=cv2.RANSAC, threshold=1.5)
     inliers = (mask.ravel() > 0)
     pts1_in = pts1[inliers]
     pts2_in = pts2[inliers]
     _, R_rel, t_rel, _ = cv2.recoverPose(E, pts1_in, pts2_in, K)
 
-    # Matrices de projection
+    # projection matrices
     P1 = K @ np.hstack((np.eye(3), np.zeros((3, 1))))
     P2 = K @ np.hstack((R_rel, t_rel))
 
-    # Triangulation
+    # triangulation
     pts4D_homo = cv2.triangulatePoints(P1, P2, pts1_in.T, pts2_in.T)
     pts3D = (pts4D_homo[:3] / pts4D_homo[3]).T
 
-    # Sauvegarde
-    points_to_file(f"output/points/3D_points_pair{pair_idx}.obj", pts3D)
+    # save 3D points to file
+    points_to_file(POINTS_SAVE_FOLDER + f"3D_points_pair{pair_idx}.obj", pts3D)
 
-    print(f"\nPoints 3D triangulés pour la paire {pair_idx} (X,Y,Z) :")
+    logging.info(f"\nPoints 3D triangulated for pair {pair_idx} (X,Y,Z) :")
     for i, p in enumerate(pts3D):
-        print(f"  Point {i+1}: {p}")
+        logging.info(f"  Point {i+1}: {p}")
 
     return pts3D
 
 def main():
     global clicked_pts, K, dist_coeffs, images
 
+    # ----------------------- Calibration results -----------------------
     calib = np.load(CALIB_SAVE_FOLDER + "calibration_data.npz")
     K = calib["K"]
     dist_coeffs = calib["dist_coeffs"]
 
+    # ----------------------- 3D Reconstruction -----------------------
     # image loading
     images = []
     for i in range(2 * N):
@@ -162,29 +166,17 @@ def main():
     else:
         logging.warning("No clicked points file found. You will need to click the points.")
 
-    # loop over pairs
+    # loop over pairs and save meshes
     all_pts3D = []
     for pair_idx in range(N):
         pts3D = process_pair(pair_idx)
         all_pts3D.append(pts3D)
+        input_file = POINTS_SAVE_FOLDER + f'3D_points_pair{pair_idx}.obj'
+        output_file = POINTS_SAVE_FOLDER + f'cube_with_faces{pair_idx}.obj'
+        points_to_faces_to_file(input_file, output_file)
     all_pts3D = np.vstack(all_pts3D)
 
-    # 3D visualization
-    fig = plt.figure(figsize=(8, 8))
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(all_pts3D[:, 0], all_pts3D[:, 1], all_pts3D[:, 2], c='orange', s=30)
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_zlabel("Z")
-    ax.set_title(f"3D point cloud from all {N} pairs")
-    plt.tight_layout()
-    plt.show()
-
-    logging.info("Processing complete for all pairs.")
-
-    input_file = 'output/points/3D_points_pair0.obj'
-    output_file = 'output/points/cube_with_faces.obj'
-    points_to_faces_to_file(input_file, output_file)
+    plot_3D_points(all_pts3D)   
 
 # ======================================= MAIN =======================================
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ import numpy as np
 ENABLE_VIEW = False # Set to True to view the reconstruction process
 
 # ======================================= FUNCTIONS ======================================
-def plot_3D_points(points3D, colors):
+def plot_3D_points_colors(points3D, colors):
     if not ENABLE_VIEW:
         return
     
@@ -23,8 +23,22 @@ def plot_3D_points(points3D, colors):
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
     ax.set_zlabel("Z")
-    ax.set_title("Reconstruction 3D")
+    ax.set_title("3D Point Cloud with Colors")
 
+    plt.tight_layout()
+    plt.show()
+
+def plot_3D_points(points3D):
+    if not ENABLE_VIEW:
+        return
+    
+    fig = plt.figure(figsize=(8, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(points3D[:, 0], points3D[:, 1], points3D[:, 2], c='orange', s=30)
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+    ax.set_title(f"3D point cloud")
     plt.tight_layout()
     plt.show()
 
