@@ -29,3 +29,6 @@ def undistort_images(images, K, dist_coeffs):
         undistorted_images.append(undistorted_img)
     
     return undistorted_images
+
+def resize_image(img, target_h, target_w):
+    return cv2.resize(img, (target_w, target_h))

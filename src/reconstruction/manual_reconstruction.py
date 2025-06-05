@@ -2,62 +2,43 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-import os
 import numpy as np
-from scipy.spatial import ConvexHull
 import os
+import logging
 
-# ----------------------------------------
-# 1) Paramètres / Calibration
-# ----------------------------------------
-calib = np.load("output/calibration_data.npz")
-K = calib["K"]
-dist_coeffs = calib["dist_coeffs"]
+from functions.obj import points_to_faces_to_file, points_to_file
+from functions.image import resize_image
+from constants import *
 
-# ----------------------------------------
-# Paramètres généraux
-# ----------------------------------------
-N = 1  # nombre de paires d'images
-NUM_POINTS = 52  # points par image (par paire)
-CLICKED_POINTS_FILE = "output/points/clicked_points.npz"
-
-# ----------------------------------------
-# Chargement des images
-# ----------------------------------------
-images = []
-for i in range(2 * N):
-    img = cv2.imread(f"data/obj4/{i+1}.png")
-    if img is None:
-        raise RuntimeError(f"Impossible de charger l'image {i+1}.png")
-    images.append(img)
-
-# ----------------------------------------
-# Fonctions utiles
-# ----------------------------------------
-
-def save_obj(filename, points3D):
-    with open(filename, 'w') as f:
-        for p in points3D:
-            f.write(f"v {p[0]} {p[1]} {p[2]}\n")
-
-def resize_img(img, target_h, target_w):
-    return cv2.resize(img, (target_w, target_h))
-
-# ----------------------------------------
-# Chargement ou initialisation des points cliqués
-# ----------------------------------------
+# ======================================= GLOBALS =======================================
+N = 1  # number of image pairs to process
+NUM_POINTS = 52  # points per image (per pair)
+CLICKED_POINTS_FILE = POINTS_SAVE_FOLDER + "clicked_points.npz"
 clicked_pts = [[] for _ in range(2 * N)]
-if os.path.exists(CLICKED_POINTS_FILE):
-    data = np.load(CLICKED_POINTS_FILE, allow_pickle=True)
-    clicked_pts_loaded = data["clicked_pts"]
-    clicked_pts = [list(pts) for pts in clicked_pts_loaded]
-    print("Points cliqués rechargés depuis le fichier.")
-else:
-    print("Aucun fichier de points trouvé. Vous devrez cliquer les points.")
+K = None  # camera intrinsic matrix
+dist_coeffs = None  # distortion coefficients
+images = []  # list to hold the images
 
-# ----------------------------------------
-# Gestion des clics
-# ----------------------------------------
+# ======================================= LOGGER SETUP =======================================
+class BlueInfoFormatter(logging.Formatter):
+    BLUE = "\033[34m"
+    RESET = "\033[0m"
+    def format(self, record):
+        formatted = super().format(record)
+        if record.levelno == logging.INFO:
+            return f"{self.BLUE}{formatted}{self.RESET}"
+        return formatted
+
+handler = logging.StreamHandler()
+handler.setFormatter(
+    BlueInfoFormatter(
+        fmt="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+)
+logging.basicConfig(level=logging.INFO, handlers=[handler])
+
+# ======================================= FUNCTIONS =======================================
 def on_mouse(event, x, y, flags, param):
     global img_pair_display, current_click_image, current_pair
 
@@ -83,9 +64,6 @@ def on_mouse(event, x, y, flags, param):
         else:
             print(f"Cliquez dans la {'gauche' if current_click_image == 0 else 'droite'} de la fenêtre.")
 
-# ----------------------------------------
-# Traitement d'une paire
-# ----------------------------------------
 def process_pair(pair_idx):
     global img_pair_display, current_click_image, current_pair
     current_pair = pair_idx
@@ -99,8 +77,8 @@ def process_pair(pair_idx):
     h2, w2 = img_right.shape[:2]
     max_h = max(h1, h2)
     max_w = max(w1, w2)
-    img_left_resized = resize_img(img_left, max_h, max_w)
-    img_right_resized = resize_img(img_right, max_h, max_w)
+    img_left_resized = resize_image(img_left, max_h, max_w)
+    img_right_resized = resize_image(img_right, max_h, max_w)
 
     img_pair_display = np.hstack((img_left_resized, img_right_resized))
 
@@ -152,7 +130,7 @@ def process_pair(pair_idx):
     pts3D = (pts4D_homo[:3] / pts4D_homo[3]).T
 
     # Sauvegarde
-    save_obj(f"output/points/3D_points_pair{pair_idx}.obj", pts3D)
+    points_to_file(f"output/points/3D_points_pair{pair_idx}.obj", pts3D)
 
     print(f"\nPoints 3D triangulés pour la paire {pair_idx} (X,Y,Z) :")
     for i, p in enumerate(pts3D):
@@ -160,60 +138,54 @@ def process_pair(pair_idx):
 
     return pts3D
 
-# ----------------------------------------
-# Boucle principale sur toutes les paires
-# ----------------------------------------
-all_pts3D = []
+def main():
+    global clicked_pts, K, dist_coeffs, images
 
-for pair_idx in range(N):
-    pts3D = process_pair(pair_idx)
-    all_pts3D.append(pts3D)
+    calib = np.load(CALIB_SAVE_FOLDER + "calibration_data.npz")
+    K = calib["K"]
+    dist_coeffs = calib["dist_coeffs"]
 
-all_pts3D = np.vstack(all_pts3D)
+    # image loading
+    images = []
+    for i in range(2 * N):
+        img = cv2.imread(OBJECT_DATA_FOLDER + f"{i+1}.png")
+        if img is None:
+            raise RuntimeError(f"Could not load image {i+1}.png")
+        images.append(img)
 
-# Affichage 3D
-fig = plt.figure(figsize=(8, 8))
-ax = fig.add_subplot(111, projection='3d')
-ax.scatter(all_pts3D[:, 0], all_pts3D[:, 1], all_pts3D[:, 2], c='orange', s=30)
-ax.set_xlabel("X")
-ax.set_ylabel("Y")
-ax.set_zlabel("Z")
-ax.set_title(f"Nuage de points 3D regroupé de toutes les {N} paires")
-plt.tight_layout()
-plt.show()
+    # load or initialize clicked points
+    if os.path.exists(CLICKED_POINTS_FILE):
+        data = np.load(CLICKED_POINTS_FILE, allow_pickle=True)
+        clicked_pts_loaded = data["clicked_pts"]
+        clicked_pts = [list(pts) for pts in clicked_pts_loaded]
+        logging.info("Loaded clicked points from file.")
+    else:
+        logging.warning("No clicked points file found. You will need to click the points.")
 
-print("Traitement terminé pour toutes les paires.")
+    # loop over pairs
+    all_pts3D = []
+    for pair_idx in range(N):
+        pts3D = process_pair(pair_idx)
+        all_pts3D.append(pts3D)
+    all_pts3D = np.vstack(all_pts3D)
 
+    # 3D visualization
+    fig = plt.figure(figsize=(8, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(all_pts3D[:, 0], all_pts3D[:, 1], all_pts3D[:, 2], c='orange', s=30)
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+    ax.set_title(f"3D point cloud from all {N} pairs")
+    plt.tight_layout()
+    plt.show()
 
-def read_obj_vertices(filename):
-    vertices = []
-    with open(filename, 'r') as file:
-        for line in file:
-            if line.startswith('v '):
-                parts = line.strip().split()
-                vertex = list(map(float, parts[1:4]))
-                vertices.append(vertex)
-    return np.array(vertices)
+    logging.info("Processing complete for all pairs.")
 
-def write_obj_with_faces(filename, vertices, faces):
-    with open(filename, 'w') as file:
-        for v in vertices:
-            file.write(f"v {v[0]} {v[1]} {v[2]}\n")
-        for f in faces:
-            # +1 car l’indexation .obj commence à 1
-            file.write(f"f {f[0]+1} {f[1]+1} {f[2]+1}\n")
+    input_file = 'output/points/3D_points_pair0.obj'
+    output_file = 'output/points/cube_with_faces.obj'
+    points_to_faces_to_file(input_file, output_file)
 
-def reconstruct_faces_from_points(obj_input, obj_output):
-    vertices = read_obj_vertices(obj_input)
-
-    # ConvexHull génère les faces triangulées du nuage
-    hull = ConvexHull(vertices)
-    faces = hull.simplices  # indices des sommets formant chaque triangle
-
-    write_obj_with_faces(obj_output, vertices, faces)
-    print(f"Fichier avec faces écrit dans : {obj_output}")
-
-# Exemple d'utilisation
-input_file = 'output/points/3D_points_pair0.obj'
-output_file = 'output/points/cube_with_faces.obj'
-reconstruct_faces_from_points(input_file, output_file)
+# ======================================= MAIN =======================================
+if __name__ == "__main__":
+    main()

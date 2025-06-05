@@ -130,7 +130,6 @@ def main():
     dist_coeffs = calibration_data['dist_coeffs']
 
     # ----------------------- 3D Reconstruction -----------------------
-
     # read images
     image_files = sorted(glob.glob(OBJECT_2_IMAGES_FOLDER + "*.png"), key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))
     if not image_files:
