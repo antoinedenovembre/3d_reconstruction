@@ -2,12 +2,34 @@
 import cv2
 import glob
 import numpy as np
-import scipy.optimize as opt
 import scipy
-from constants import CHESSBOARD_SIZE, CHESSBOARD_DIM
+import logging
+import os
+
+from constants import *
+
+# ======================================= LOGGER SETUP =======================================
+class BlueInfoFormatter(logging.Formatter):
+    BLUE = "\033[34m"
+    RESET = "\033[0m"
+    def format(self, record):
+        formatted = super().format(record)
+        if record.levelno == logging.INFO:
+            return f"{self.BLUE}{formatted}{self.RESET}"
+        return formatted
+
+handler = logging.StreamHandler()
+handler.setFormatter(
+    BlueInfoFormatter(
+        fmt="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+)
+logging.basicConfig(level=logging.INFO, handlers=[handler])
 
 # ======================================= FUNCTIONS ======================================
-def homography(images, world_pts, save_folder):
+def homography(images, world_pts):
+    """ Calculate homography matrices for each image and return them along with the image points."""
     H_list = []
     img_pts = []
 
@@ -32,17 +54,18 @@ def homography(images, world_pts, save_folder):
             # append the corners coordinates to the list
             img_pts.append(corners)
 
-            # draw the corners on the image
-            cv2.drawChessboardCorners(img, CHESSBOARD_SIZE, corners, True)
-            img = cv2.resize(img, (int(img.shape[1]/3), int(img.shape[0]/3)))
-            cv2.imwrite(save_folder + '/corners/' + str(i) + '_corners.png', img)
+            # imshow for 100ms to visualize the corners
+            img = cv2.drawChessboardCorners(img, CHESSBOARD_SIZE, corners, ret)
+            cv2.imshow(f'Corners in image {i}', img)
+            cv2.waitKey(100)
         else:
-            print(f"Chessboard corners not found in image {i}. Skipping this image.")
+            logging.warning(f"Chessboard corners not found in image {i}. Skipping this image.")
 
     # return the list of homography matrices and image points
     return H_list, img_pts
 
 def v(i, j, H):
+    """ Compute the vector v from the homography matrix H. """
     # compute the vector v from the homography matrix H
     return np.array([
         H[0][i] * H[0][j],
@@ -54,6 +77,7 @@ def v(i, j, H):
     ])
 
 def compute_intrinsics(H_list):
+    """ Compute the intrinsic matrix K from the list of homography matrices. """
     V = []
 
     # for each homography matrix
@@ -95,6 +119,7 @@ def compute_intrinsics(H_list):
     return K
 
 def compute_extrinsics(K, H_list):
+    """ Compute the extrinsic matrices R and t from the intrinsic matrix K and the list of homography matrices. """
     # compute the inverse of the intrinsic matrix K
     K_inv = np.linalg.inv(K)
     R_list = []
@@ -123,11 +148,8 @@ def compute_extrinsics(K, H_list):
     return R_list, t_list
 
 def main():
-    data = 'data/calib/'
-    save = 'output/'
-
     # get all images from the data folder
-    images = [cv2.imread(file) for file in glob.glob(data + '*.jpeg')]
+    images = [cv2.imread(file) for file in glob.glob(CALIB_DATA_FOLDER + '*.jpeg')]
 
     if not images:
         raise ValueError("No images found in the specified directory.")
@@ -139,7 +161,7 @@ def main():
     world_pts = np.array(np.hstack((world_pts_x.reshape(CHESSBOARD_SIZE[0] * CHESSBOARD_SIZE[1], 1), world_pts_y.reshape(CHESSBOARD_SIZE[0] * CHESSBOARD_SIZE[1], 1))).astype(np.float32)*CHESSBOARD_DIM)
 
     # calculate homography for each image and get the image points
-    H_list, img_pts = homography(images, world_pts, save)
+    H_list, _ = homography(images, world_pts)
 
     # compute the intrinsic matrix K
     K = compute_intrinsics(H_list)
@@ -148,8 +170,9 @@ def main():
     R_list, t_list = compute_extrinsics(K, H_list)
 
     # save K matrix to a file
-    np.savetxt(save + 'K.txt', K, fmt='%.6f')
-    print("Saved intrinsic matrix K to output/K.txt")
+    os.makedirs(CALIB_SAVE_FOLDER, exist_ok=True)
+    np.savetxt(CALIB_SAVE_FOLDER + 'K.txt', K, fmt='%.6f')
+    logging.info(f"Saved intrinsic matrix K to {CALIB_SAVE_FOLDER}K.txt")
 
 # ======================================= MAIN ==========================================
 if __name__ == '__main__':

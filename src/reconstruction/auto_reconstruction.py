@@ -7,9 +7,9 @@ import numpy as np
 import os
 import logging
 
-from image import extract_features, undistort_images
-from viz import plot_3D_points, view_mesh_file
-from obj import points_to_file, points_to_faces_to_file
+from functions.image import extract_features, undistort_images
+from functions.viz import plot_3D_points, view_camera_trajectory, view_mesh_file
+from functions.obj import points_to_file, points_to_faces_to_file
 from constants import *
 
 # ======================================= LOGGER SETUP =======================================
@@ -119,41 +119,13 @@ def get_3d_points_from_images(images_obj, K, dist_coeffs=None):
     all_points_3D = np.vstack(all_points_3D)
     all_colors = np.vstack(all_colors)
 
-    # initialization of absolute camera positions and orientations
-    camera_positions = [np.zeros((3, 1))]  # the first camera is at the origin
-    R_abs = [np.eye(3)]  # the first rotation is identity
-
-    for i, (R_rel, t_rel) in enumerate(poses_rel):
-        # previous absolute position
-        R_prev = R_abs[-1]
-        pos_prev = camera_positions[-1]
-
-        # new position (note: translation is in the previous frame's coordinate system)
-        pos_new = pos_prev + R_prev.T @ t_rel  # or R_prev @ t_rel depending on convention
-        camera_positions.append(pos_new)
-
-        # new orientation
-        R_new = R_rel @ R_prev
-        R_abs.append(R_new)
-
-    camera_positions = np.hstack(camera_positions)  # 3 x N
-
-    # 3D plot of camera trajectory
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.plot(camera_positions[0], camera_positions[1], camera_positions[2], marker='o')
-    ax.set_title("Camera Trajectory")
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_zlabel("Z")
-    ax.axis('equal')
-    plt.show()
+    view_camera_trajectory(poses_rel)
     
     return all_points_3D, all_colors
 
 def main():
     # ----------------------- Calibration results -----------------------
-    calibration_data = np.load(SAVE_FOLDER + 'calibration_data.npz')
+    calibration_data = np.load(CALIB_SAVE_FOLDER + 'calibration_data.npz')
     K = calibration_data['K']
     dist_coeffs = calibration_data['dist_coeffs']
 
