@@ -1,2 +1,5 @@
 numpy
 opencv-contrib-python
+matplotlib
+scipy
+open3d
