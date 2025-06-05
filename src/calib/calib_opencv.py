@@ -2,7 +2,29 @@
 import cv2
 import numpy as np
 import glob
-from constants import CHESSBOARD_SIZE, CHESSBOARD_DIM
+import logging
+import os
+
+from constants import *
+
+# ======================================= LOGGER SETUP =======================================
+class BlueInfoFormatter(logging.Formatter):
+    BLUE = "\033[34m"
+    RESET = "\033[0m"
+    def format(self, record):
+        formatted = super().format(record)
+        if record.levelno == logging.INFO:
+            return f"{self.BLUE}{formatted}{self.RESET}"
+        return formatted
+
+handler = logging.StreamHandler()
+handler.setFormatter(
+    BlueInfoFormatter(
+        fmt="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+)
+logging.basicConfig(level=logging.INFO, handlers=[handler])
 
 # ======================================= FUNCTIONS ======================================
 def prepare_object_points(chessboard_size, square_size):
@@ -25,7 +47,7 @@ def find_corners(images, chessboard_size, objp):
     for fname in images:
         img = cv2.imread(fname)
         if img is None:
-            print(f"Could not read image {fname}")
+            logging.error(f"Could not read image {fname}. Skipping.")
             continue
 
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -34,7 +56,7 @@ def find_corners(images, chessboard_size, objp):
 
         ret, corners = cv2.findChessboardCorners(gray, chessboard_size, None)
         if not ret:
-            print(f"No corners found in {fname}")
+            logging.warning(f"No corners found in {fname}. Skipping.")
             continue
 
         corners_subpix = cv2.cornerSubPix(
@@ -61,22 +83,22 @@ def calibrate_and_save(objpoints, imgpoints, img_shape, output_path):
     ret, K, dist_coeffs, rvecs, tvecs = cv2.calibrateCamera(
         objpoints, imgpoints, img_shape, None, None
     )
-    print("Calibration reprojection error:", ret)
+    logging.info(f"Calibration reprojection error: {ret}")
     if not ret:
-        print("Calibration failed")
+        logging.error("Calibration failed")
         exit(1)
 
     np.savez(output_path, K=K, dist_coeffs=dist_coeffs,
              rvecs=rvecs, tvecs=tvecs)
-    print(f"Calibration complete. Data saved to {output_path}")
+    logging.info(f"Calibration complete. Data saved to {output_path}")
 
 def main():
-    image_pattern = 'data/calib/*.jpeg'
-    output_file = 'output/calibration_data.npz'
+    os.makedirs(CALIB_SAVE_FOLDER, exist_ok=True)
+    output_file = CALIB_SAVE_FOLDER + 'calibration_data.npz'
 
-    images = glob.glob(image_pattern)
+    images = glob.glob(CALIB_DATA_FOLDER + '*.jpeg')
     if not images:
-        print(f"No images found in {image_pattern}")
+        logging.error(f"No images found in {CALIB_DATA_FOLDER}")
         exit(1)
 
     objp = prepare_object_points(CHESSBOARD_SIZE, CHESSBOARD_DIM)
