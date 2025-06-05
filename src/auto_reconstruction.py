@@ -2,10 +2,10 @@
 import cv2
 import glob
 import numpy as np
-import os
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.spatial import Delaunay
+from scipy.spatial import ConvexHull
+import os
 import open3d as o3d
 
 # ======================================= FUNCTIONS ======================================
@@ -37,24 +37,36 @@ def undistort_images(images, K, dist_coeffs):
     
     return undistorted_images
 
-def save_obj_with_faces(filename, points3D, faces):
-    """
-    points3D : liste de points [ [x, y, z], ... ]
-    faces : liste de faces [ [i1, i2, i3], ... ] avec i1, i2, i3 étant les indices des points (0-based)
-    """
-    with open(filename, 'w') as f:
-        for p in points3D:
-            f.write(f"v {p[0]} {p[1]} {p[2]}\n")
-        for face in faces:
-            f.write(f"f {face[0]+1} {face[1]+1} {face[2]+1}\n")
+def read_obj_vertices(filename):
+    vertices = []
+    with open(filename, 'r') as file:
+        for line in file:
+            if line.startswith('v '):
+                parts = line.strip().split()
+                vertex = list(map(float, parts[1:4]))
+                vertices.append(vertex)
+    return np.array(vertices)
 
-def generate_faces_delaunay(points3D):
-    points2D = np.array([[p[0], p[1]] for p in points3D])
-    tri = Delaunay(points2D)
-    return tri.simplices.tolist()
+def write_obj_with_faces(filename, vertices, faces):
+    with open(filename, 'w') as file:
+        for v in vertices:
+            file.write(f"v {v[0]} {v[1]} {v[2]}\n")
+        for f in faces:
+            # +1 car l’indexation .obj commence à 1
+            file.write(f"f {f[0]+1} {f[1]+1} {f[2]+1}\n")
+
+def reconstruct_faces_from_points(obj_input, obj_output):
+    vertices = read_obj_vertices(obj_input)
+
+    # ConvexHull génère les faces triangulées du nuage
+    hull = ConvexHull(vertices)
+    faces = hull.simplices  # indices des sommets formant chaque triangle
+
+    write_obj_with_faces(obj_output, vertices, faces)
+    print(f"Fichier avec faces écrit dans : {obj_output}")
 
 def reconstruct(images_obj, K, dist_coeffs=None):
-    # images_obj = undistort_images(images_obj, K, dist_coeffs)
+    images_obj = undistort_images(images_obj, K, dist_coeffs)
     kp_list, desc_list = extract_features(images_obj)
     
     all_points_3D = []
@@ -94,34 +106,6 @@ def reconstruct(images_obj, K, dist_coeffs=None):
         
         # filter matches by RANSAC inliers
         ransac_matches = [good_matches[i] for i in range(len(good_matches)) if inliers[i]]
-        first_match = ransac_matches[0] if ransac_matches else None
-
-        # DEBUG: for every image pair, visualize the first match to ensure the correspondence of index
-        if len(good_matches) > 0:
-            print(f"Image pair {i} - {i+1}: First match queryIdx={first_match.queryIdx}, trainIdx={first_match.trainIdx}")
-            img_matches = cv2.drawMatches(
-                img1, kp1, img2, kp2,
-                [first_match], None,
-                flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS
-            )
-            os.makedirs("output/matches", exist_ok=True)
-            cv2.imwrite(f"output/matches/matches_{i}_{i+1}.png", img_matches)
-        
-        if first_match is not None:
-            pt1 = tuple(map(int, kp1[first_match.queryIdx].pt))
-            pt2 = tuple(map(int, kp2[first_match.trainIdx].pt))
-            tmp1 = img1.copy()
-            tmp2 = img2.copy()
-            cv2.circle(tmp1, pt1, 5, (0, 255, 0), -1)
-            cv2.circle(tmp2, pt2, 5, (0, 255, 0), -1)
-            cv2.imwrite(f'output/matches/points_{i}_{i+1}.png', np.hstack((tmp1, tmp2)))
-        # img_matches = cv2.drawMatches(
-        #     img1, kp1, img2, kp2,
-        #     ransac_matches, None,
-        #     flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS
-        # )
-        # os.makedirs("output/matches", exist_ok=True)
-        # cv2.imwrite(f"output/matches/matches_{i}_{i+1}.png", img_matches)
 
         image1_points = []
         image2_points = []
@@ -131,28 +115,13 @@ def reconstruct(images_obj, K, dist_coeffs=None):
             pt2 = tuple(map(int, kp2[match.trainIdx].pt))
             image1_points.append(pt1)
             image2_points.append(pt2)
-            
-        tmp1 = img1.copy()
-        tmp2 = img2.copy()
+
         # convert image points to numpy arrays
         image1_points = np.array(image1_points, dtype=np.float32)
         image2_points = np.array(image2_points, dtype=np.float32)
-        # use numpy array indexing for coordinates
-        cv2.circle(
-            tmp1,
-            (int(image1_points[0, 0]), int(image1_points[0, 1])),
-            5, (0, 255, 0), -1
-        )
-        cv2.circle(
-            tmp2,
-            (int(image2_points[0, 0]), int(image2_points[0, 1])),
-            5, (0, 255, 0), -1
-        )
-        cv2.imwrite(f'output/matches/points_verif_{i}_{i+1}.png', np.hstack((tmp1, tmp2)))
 
         # retrieve relative pose (t_rel is unit‐norm, apply known baseline scale)
         _, R_rel, t_rel, _ = cv2.recoverPose(E, image1_points, image2_points, K)
-
         poses_rel.append((R_rel, t_rel))
 
         # chain global poses
@@ -254,25 +223,15 @@ def main():
     images_obj = [cv2.imread(file) for file in image_files]
 
     points3D, colors = reconstruct(images_obj, K, dist_coeffs)
-    save_obj_with_colors("output/points/3D_points_with_colors.obj", points3D, colors)
+    save_obj_with_colors(save + "points/3D_points_with_colors.obj", points3D, colors)
     plot_3D_points(points3D, colors)
 
-    faces = generate_faces_delaunay(points3D)
-    save_obj_with_faces("output/points/3D_faces.obj", points3D, faces)
+    reconstruct_faces_from_points(save + "points/3D_points_with_colors.obj", save + "points/3D_faces.obj")
 
-    # -- visualize in a window using Open3D --
-
-    mesh = o3d.geometry.TriangleMesh(
-        vertices=o3d.utility.Vector3dVector(points3D),
-        triangles=o3d.utility.Vector3iVector(faces)
-    )
-    # if you have per‐vertex colors:
-    try:
-        mesh.vertex_colors = o3d.utility.Vector3dVector(colors[:, ::-1] / 255.0)
-    except NameError:
-        pass
-
-    o3d.visualization.draw_geometries([mesh])
+    # display the reconstructed 3D mesh with open3d
+    mesh = o3d.io.read_triangle_mesh(save + "points/3D_faces.obj")
+    mesh.compute_vertex_normals()
+    o3d.visualization.draw_geometries([mesh], mesh_show_back_face=True)
 
 # ======================================= MAIN ==========================================
 if __name__ == '__main__':
