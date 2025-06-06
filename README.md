@@ -39,3 +39,26 @@ You will first need to calibrate your camera using the `calib_opencv.py` script.
 Then, you can use the `auto_reconstruction.py` script to perform automatic reconstruction from a set of images. This script will read the calibration data and reconstruct the 3D model. Note that 3D reconstruction with N images is not functional, so the folder selected for automatic reconstruction is `data/obj_two_images/`, which contains only two images. The script will save the reconstructed 3D model in the `data/obj/` directory, as both points and faces.
 
 The best results are obtained with the `manual_reconstruction.py` script, which allows you to manually select points in two images and reconstruct the 3D model. This script will also save the reconstructed 3D model in the `data/obj/` directory.
+## How to use and run the code
+
+This project is structured as follows:
+
+```
+├── data/
+│   ├── calib/
+│   ├── obj/
+│   └── obj_two_images/
+├── src/
+│   ├── calib/
+│   │   └── calib_opencv.py
+│   │   └── calib_zhang.py
+│   ├── reconstruction/
+│   │   └── auto_reconstruction.py
+│   │   └── manual_reconstruction.py
+```
+
+You will first need to calibrate your camera using the `calib_opencv.py` script. The calibration results will be saved in the `data/calib/` directory. The `calib_zhang.py` script is the implementation of Zhang's method but does not implement the optimization step.
+
+Then, you can use the `auto_reconstruction.py` script to perform automatic reconstruction from a set of images. This script will read the calibration data and reconstruct the 3D model. Note that 3D reconstruction with N images is not functional, so the folder selected for automatic reconstruction is `data/obj_two_images/`, which contains only two images. The script will save the reconstructed 3D model in the `data/obj/` directory, as both points and faces.
+
+The best results are obtained with the `manual_reconstruction.py` script, which allows you to manually select points in two images and reconstruct the 3D model. This script will also save the reconstructed 3D model in the `data/obj/` directory.

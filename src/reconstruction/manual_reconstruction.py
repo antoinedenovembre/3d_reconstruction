@@ -7,7 +7,7 @@ import logging
 
 from functions.obj import points_to_faces_to_file, points_to_file
 from functions.image import resize_image
-from functions.viz import plot_3D_points
+from functions.viz import plot_3D_points, view_mesh_file
 from constants import *
 
 # ======================================= GLOBALS =======================================
@@ -171,12 +171,15 @@ def main():
     for pair_idx in range(N):
         pts3D = process_pair(pair_idx)
         all_pts3D.append(pts3D)
-        input_file = POINTS_SAVE_FOLDER + f'3D_points_pair{pair_idx}.obj'
-        output_file = POINTS_SAVE_FOLDER + f'cube_with_faces{pair_idx}.obj'
+        input_file = POINTS_SAVE_FOLDER + f'3D_points_pair.obj'
+        output_file = MESH_SAVE_FOLDER + f'cube_with_faces.obj'
         points_to_faces_to_file(input_file, output_file)
     all_pts3D = np.vstack(all_pts3D)
 
     plot_3D_points(all_pts3D)   
+
+    # display the reconstructed 3D mesh
+    view_mesh_file(MESH_SAVE_FOLDER + "cube_with_faces.obj")
 
 # ======================================= MAIN =======================================
 if __name__ == "__main__":
