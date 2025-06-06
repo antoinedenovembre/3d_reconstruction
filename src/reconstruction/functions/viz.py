@@ -4,7 +4,7 @@ import open3d as o3d
 import numpy as np
 
 # Options
-ENABLE_VIEW = False # Set to True to view the reconstruction process
+ENABLE_VIEW = True # Set to True to view the reconstruction process
 
 # ======================================= FUNCTIONS ======================================
 def plot_3D_points_colors(points3D, colors):
