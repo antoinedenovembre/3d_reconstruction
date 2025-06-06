@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cube VR</title>
+  <script type="module"
+    src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js">
+  </script>
+  <style>
+    body, html {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #222;
+    }
+    model-viewer {
+      width: 100%;
+      height: 100%;
+      /* juste pour débug si besoin */
+      /* outline: 1px dashed lime; */
+    }
+  </style>
+</head>
+<body>
+  <model-viewer
+    src="cube.glb"
+    alt="Cube with Faces"
+    camera-controls
+    environment-image="neutral"
+    auto-rotate
+    interaction-prompt="auto"
+    exposure="1"
+    ar
+    ar-modes="webxr"
+  ></model-viewer>
+</body>
+</html>
